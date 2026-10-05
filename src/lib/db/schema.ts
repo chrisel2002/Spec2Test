@@ -34,8 +34,10 @@ export const documents = pgTable("documents", {
     .defaultNow(),
 });
 
-// Embeddings use OpenAI's text-embedding-3-small dimension (1536). Revisit
-// if we switch embedding models, since pgvector columns have a fixed size.
+// Dimensions must match EMBEDDING_DIMENSIONS in .env.example — pgvector
+// columns have a fixed size, so changing the embedding model's output size
+// means a migration. Google's gemini-embedding-001 defaults to 3072 dims
+// but supports truncating to 768 via providerOptions.google.outputDimensionality.
 export const chunks = pgTable("chunks", {
   id: uuid("id").primaryKey().defaultRandom(),
   documentId: uuid("document_id")
@@ -43,7 +45,7 @@ export const chunks = pgTable("chunks", {
     .references(() => documents.id, { onDelete: "cascade" }),
   chunkIndex: integer("chunk_index").notNull(),
   content: text("content").notNull(),
-  embedding: vector("embedding", { dimensions: 1536 }),
+  embedding: vector("embedding", { dimensions: 768 }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
