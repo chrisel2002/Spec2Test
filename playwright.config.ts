@@ -14,5 +14,8 @@ export default defineConfig({
     command: "pnpm dev",
     url: "http://localhost:3000",
     reuseExistingServer: !process.env.CI,
+    // No real embedding API calls during e2e tests — see the mock
+    // short-circuit in src/lib/ai/embeddings.ts.
+    env: { EMBEDDING_PROVIDER: "mock" },
   },
 });
