@@ -8,9 +8,9 @@ const AGENT_STEPS = [
   { label: "Build traceability matrix" },
 ];
 
-export function AgentStepsSidebar() {
+export function AgentSteps() {
   return (
-    <aside className="w-56 shrink-0 border-r p-4">
+    <section>
       <h2 className="mb-3 text-sm font-medium text-muted-foreground">
         Agent steps
       </h2>
@@ -25,6 +25,6 @@ export function AgentStepsSidebar() {
           </li>
         ))}
       </ol>
-    </aside>
+    </section>
   );
 }
