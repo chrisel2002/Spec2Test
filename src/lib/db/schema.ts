@@ -1,5 +1,6 @@
 import {
   boolean,
+  index,
   integer,
   json,
   pgEnum,
@@ -29,6 +30,9 @@ export const documents = pgTable("documents", {
   filename: text("filename").notNull(),
   mimeType: text("mime_type").notNull(),
   rawText: text("raw_text").notNull(),
+  // SHA-256 of the raw uploaded bytes. Lets the upload endpoint detect a
+  // re-upload of the same file and skip re-parsing/re-embedding it.
+  contentHash: text("content_hash").notNull().unique(),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -38,18 +42,36 @@ export const documents = pgTable("documents", {
 // columns have a fixed size, so changing the embedding model's output size
 // means a migration. Google's gemini-embedding-001 defaults to 3072 dims
 // but supports truncating to 768 via providerOptions.google.outputDimensionality.
-export const chunks = pgTable("chunks", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  documentId: uuid("document_id")
-    .notNull()
-    .references(() => documents.id, { onDelete: "cascade" }),
-  chunkIndex: integer("chunk_index").notNull(),
-  content: text("content").notNull(),
-  embedding: vector("embedding", { dimensions: 768 }),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-});
+export const chunks = pgTable(
+  "chunks",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    documentId: uuid("document_id")
+      .notNull()
+      .references(() => documents.id, { onDelete: "cascade" }),
+    chunkIndex: integer("chunk_index").notNull(),
+    content: text("content").notNull(),
+    embedding: vector("embedding", { dimensions: 768 }),
+    // Citation metadata, carried over from chunkDocument() in lib/ingest.
+    heading: text("heading"),
+    headingLevel: integer("heading_level"),
+    page: integer("page"),
+    charStart: integer("char_start").notNull(),
+    charEnd: integer("char_end").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    // HNSW over ivfflat: no training step needed (works correctly even on
+    // an empty or small table) and better query recall, at the cost of
+    // slower inserts — a good trade-off at our scale of a few documents.
+    index("chunks_embedding_hnsw_idx").using(
+      "hnsw",
+      table.embedding.op("vector_cosine_ops"),
+    ),
+  ],
+);
 
 export const requirements = pgTable("requirements", {
   id: uuid("id").primaryKey().defaultRandom(),

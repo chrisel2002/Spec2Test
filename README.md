@@ -39,11 +39,12 @@ Turn software requirements into test cases with AI agents.
 ### Other commands
 
 ```
-pnpm test           run unit tests
-pnpm test:e2e       run Playwright tests
-pnpm eval           run the eval script
-pnpm db:generate    generate a new Drizzle migration after changing the schema
-pnpm lint           lint and type-check
+pnpm test               run unit tests (no DB or API key needed)
+pnpm test:integration   run tests against a real DB + embedding API (needs .env.local)
+pnpm test:e2e           run Playwright tests
+pnpm eval               run the eval script
+pnpm db:generate        generate a new Drizzle migration after changing the schema
+pnpm lint               lint and type-check
 ```
 
 ## Design decisions
