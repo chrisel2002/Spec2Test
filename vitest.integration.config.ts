@@ -11,6 +11,11 @@ export default defineConfig({
     include: ["tests/integration/**/*.test.ts"],
     environment: "node",
     testTimeout: 30_000,
+    // These tests share one real Postgres instance and may ingest the
+    // same sample file (same content_hash), so running files in parallel
+    // races on document creation/cleanup. Integration suites against
+    // shared external state are conventionally run serially.
+    fileParallelism: false,
   },
   resolve: {
     alias: {
