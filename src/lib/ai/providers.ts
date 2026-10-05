@@ -25,7 +25,7 @@ function readProviderEnv<T extends string>(
   return value as T;
 }
 
-export function getChatModel(): LanguageModel {
+export function getChatModel(): Exclude<LanguageModel, string> {
   const provider = readProviderEnv<ChatProviderName>(
     "MODEL_PROVIDER",
     CHAT_PROVIDERS,
@@ -42,7 +42,7 @@ export function getChatModel(): LanguageModel {
   }
 }
 
-export function getEmbeddingModel(): EmbeddingModel {
+export function getEmbeddingModel(): Exclude<EmbeddingModel, string> {
   const provider = readProviderEnv<EmbeddingProviderName>(
     "EMBEDDING_PROVIDER",
     EMBEDDING_PROVIDERS,
