@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { AppHeader } from "@/components/app-header";
+import { ChatWithSpec } from "@/components/chat-with-spec";
 import type { DocumentSummary } from "@/components/document-list";
 import { Sidebar } from "@/components/sidebar";
 import {
@@ -76,11 +77,8 @@ export function HomeClient({
                 generated test cases.
               </p>
             </TabsContent>
-            <TabsContent value="chat" className="mt-4">
-              <p className="text-sm text-muted-foreground">
-                Chat with the uploaded spec to ask questions about its
-                contents.
-              </p>
+            <TabsContent value="chat" className="mt-4 h-[calc(100%-3rem)]">
+              <ChatWithSpec />
             </TabsContent>
           </Tabs>
         </main>
