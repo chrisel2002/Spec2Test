@@ -47,7 +47,65 @@ pnpm db:generate        generate a new Drizzle migration after changing the sche
 pnpm lint               lint and type-check
 ```
 
+## Architecture
+
+Uploading a spec runs it through parsing → chunking → embedding (see the
+chunking design decision below). Clicking **Generate tests** on a document
+then runs a separate, three-node LangGraph.js pipeline over that document's
+chunks:
+
+```mermaid
+flowchart TD
+    START((start)) --> extract[Extract requirements]
+    extract -- found 0 requirements --> stop((end))
+    extract -- found requirements --> ambiguity[Check ambiguity]
+    ambiguity --> tests[Generate tests]
+    tests --> done((end))
+```
+
+- **Extract requirements** reads the document's chunks and pulls out
+  atomic, testable requirements, splitting compound ones ("shall do A and
+  B") apart. Every requirement must cite which chunk(s) it came from.
+- **Check ambiguity** reviews each requirement's own text for vague
+  wording, missing thresholds, or undefined terms, and — only when it
+  finds a problem — proposes a measurable rewrite.
+- **Generate tests** writes 2-4 Given/When/Then test cases per
+  requirement (from the rewrite, for ambiguous ones), covering at least
+  one positive and, where it makes sense, one negative/boundary case.
+
+If extraction finds zero requirements, the graph ends right there instead
+of running ambiguity checks and test generation over nothing. Each node
+records its own status, token usage, and estimated cost to `agent_runs`
+before handing off to the next one (`src/lib/agents/`).
+
 ## Design decisions
+
+### Why a graph of focused nodes instead of one big prompt
+
+Each node does exactly one job — extract, judge testability, or write
+tests — with its own narrow prompt and its own Zod schema. A single
+"read this spec and produce requirements with tests" prompt would have to
+hold all three jobs' instructions and output shapes in its head at once,
+which tends to produce shallower results on every sub-task as the prompt
+grows, and makes "why did this requirement get this test?" unanswerable
+(the model made every decision in one undifferentiated pass). Separate
+nodes also fail independently and visibly — `agent_runs` shows exactly
+which step broke, not just "the pipeline failed somewhere" — and each
+step's prompt and schema can be improved without touching the other two.
+
+### Why every output goes through a Zod schema
+
+An LLM asked for free-text JSON will occasionally hand back malformed
+JSON, miss a field, or invent one — not often, but at the batch counts
+this pipeline runs over free-tier rate limits, often enough to matter.
+`generateObject()` validates the model's output against a Zod schema
+before any of our code sees it, so a bad response surfaces immediately as
+a validation error (retried, then failed loudly) instead of silently
+propagating a malformed requirement or test case into the database. The
+schemas also do more than type-check: `sourceChunkRefs.min(1)` makes an
+ungrounded requirement a schema violation rather than a prompt
+suggestion, and `AmbiguityResultSchema`'s `.refine()` makes "ambiguous
+with no reason" structurally impossible to return.
 
 ### Chunking strategy
 
