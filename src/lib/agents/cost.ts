@@ -9,6 +9,7 @@ const PRICING_PER_MILLION_TOKENS: Record<
 > = {
   "gemini-flash-latest": { input: 0.075, output: 0.3 },
   "gemini-2.5-flash": { input: 0.075, output: 0.3 },
+  "gemini-flash-lite-latest": { input: 0.0375, output: 0.15 },
 };
 
 export function estimateCostUsd(

@@ -25,11 +25,6 @@ export async function generateStructured<T>(options: {
     system: options.system,
     prompt: options.prompt,
     maxRetries: MAX_RETRIES,
-    // Extraction/ambiguity/test-gen are mechanical classification and
-    // rewriting tasks, not multi-step reasoning — disabling "thinking"
-    // noticeably cuts token usage and latency per call. Ignored by
-    // providers other than Google.
-    providerOptions: { google: { thinkingConfig: { thinkingBudget: 0 } } },
   });
 
   return {
