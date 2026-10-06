@@ -1,9 +1,20 @@
 import { HomeClient } from "@/components/home-client";
-import { listDocumentSummaries } from "@/lib/db/queries";
+import { listDocumentSummaries, listRequirementsWithTestCases } from "@/lib/db/queries";
 
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
   const documents = await listDocumentSummaries();
-  return <HomeClient initialDocuments={documents} />;
+  const selectedDocumentId = documents[0]?.id ?? null;
+  const requirements = selectedDocumentId
+    ? await listRequirementsWithTestCases(selectedDocumentId)
+    : [];
+
+  return (
+    <HomeClient
+      initialDocuments={documents}
+      initialSelectedDocumentId={selectedDocumentId}
+      initialRequirements={requirements}
+    />
+  );
 }
