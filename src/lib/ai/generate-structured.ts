@@ -1,0 +1,43 @@
+import { generateObject } from "ai";
+import type { z } from "zod";
+
+import { getChatModel } from "./providers";
+
+// Free-tier Gemini rate limits mean occasional 429/503s are expected, not
+// exceptional — 5 retries (up from the AI SDK's default of 2) gives its
+// built-in exponential backoff more room to ride out a transient window
+// before we give up and fail the whole pipeline step.
+const MAX_RETRIES = 5;
+
+export type StructuredResult<T> = {
+  object: T;
+  usage: { inputTokens: number; outputTokens: number; totalTokens: number };
+};
+
+export async function generateStructured<T>(options: {
+  schema: z.ZodType<T>;
+  system: string;
+  prompt: string;
+}): Promise<StructuredResult<T>> {
+  const result = await generateObject({
+    model: getChatModel(),
+    schema: options.schema,
+    system: options.system,
+    prompt: options.prompt,
+    maxRetries: MAX_RETRIES,
+    // Extraction/ambiguity/test-gen are mechanical classification and
+    // rewriting tasks, not multi-step reasoning — disabling "thinking"
+    // noticeably cuts token usage and latency per call. Ignored by
+    // providers other than Google.
+    providerOptions: { google: { thinkingConfig: { thinkingBudget: 0 } } },
+  });
+
+  return {
+    object: result.object,
+    usage: {
+      inputTokens: result.usage.inputTokens ?? 0,
+      outputTokens: result.usage.outputTokens ?? 0,
+      totalTokens: result.usage.totalTokens ?? 0,
+    },
+  };
+}
