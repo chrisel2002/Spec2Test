@@ -8,6 +8,7 @@ import {
   real,
   text,
   timestamp,
+  uniqueIndex,
   uuid,
   vector,
 } from "drizzle-orm/pg-core";
@@ -23,6 +24,12 @@ export const agentRunStatusEnum = pgEnum("agent_run_status", [
   "running",
   "succeeded",
   "failed",
+]);
+
+export const testCaseTypeEnum = pgEnum("test_case_type", [
+  "positive",
+  "negative",
+  "boundary",
 ]);
 
 export const documents = pgTable("documents", {
@@ -73,31 +80,48 @@ export const chunks = pgTable(
   ],
 );
 
-export const requirements = pgTable("requirements", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  documentId: uuid("document_id")
-    .notNull()
-    .references(() => documents.id, { onDelete: "cascade" }),
-  chunkId: uuid("chunk_id").references(() => chunks.id, {
-    onDelete: "set null",
-  }),
-  text: text("text").notNull(),
-  isAmbiguous: boolean("is_ambiguous").notNull().default(false),
-  ambiguityReason: text("ambiguity_reason"),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-});
+export const requirements = pgTable(
+  "requirements",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    documentId: uuid("document_id")
+      .notNull()
+      .references(() => documents.id, { onDelete: "cascade" }),
+    // Human-readable, e.g. "REQ-01" — assigned by our code after extraction,
+    // never by the model, so numbering stays sequential and gap-free across
+    // batched extraction calls. Unique per document, not globally.
+    code: text("code").notNull(),
+    title: text("title").notNull(),
+    text: text("text").notNull(),
+    // Plain array rather than a join table: Postgres can't enforce a real
+    // FK constraint on array elements, but a requirement citing 1-2 source
+    // chunks doesn't need one — simpler to store and query than a separate
+    // requirement_chunks table at this scale.
+    sourceChunkIds: uuid("source_chunk_ids").array().notNull().default([]),
+    isAmbiguous: boolean("is_ambiguous").notNull().default(false),
+    ambiguityReason: text("ambiguity_reason"),
+    suggestedRewrite: text("suggested_rewrite"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [uniqueIndex("requirements_document_code_idx").on(table.documentId, table.code)],
+);
 
 export const testCases = pgTable("test_cases", {
   id: uuid("id").primaryKey().defaultRandom(),
   requirementId: uuid("requirement_id")
     .notNull()
     .references(() => requirements.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  type: testCaseTypeEnum("type").notNull(),
   given: text("given").notNull(),
   when: text("when").notNull(),
   then: text("then").notNull(),
   status: testCaseStatusEnum("status").notNull().default("draft"),
+  // True when generated from an ambiguous requirement's suggested rewrite
+  // rather than its original (possibly untestable) text.
+  basedOnAssumption: boolean("based_on_assumption").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -108,11 +132,19 @@ export const agentRuns = pgTable("agent_runs", {
   documentId: uuid("document_id")
     .notNull()
     .references(() => documents.id, { onDelete: "cascade" }),
+  // Correlates the 3 step-rows of one pipeline execution, so the status
+  // endpoint can fetch "this run's steps" instead of every historical row
+  // for the document. Not a FK — there's no parent "runs" table, just a
+  // shared id minted once when a run starts.
+  runId: uuid("run_id").notNull(),
   step: text("step").notNull(),
   status: agentRunStatusEnum("status").notNull().default("pending"),
+  // Field names match the AI SDK's LanguageModelUsage shape directly, so
+  // results from generateObject() can be stored with no translation.
   tokenUsage: json("token_usage").$type<{
-    promptTokens: number;
-    completionTokens: number;
+    inputTokens: number;
+    outputTokens: number;
+    totalTokens: number;
   }>(),
   costUsd: real("cost_usd"),
   startedAt: timestamp("started_at", { withTimezone: true }),
