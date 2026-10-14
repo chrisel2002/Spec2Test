@@ -3,6 +3,7 @@ import { embedMany } from "ai";
 import { requireEnv } from "@/lib/env";
 
 import { getEmbeddingModel, getEmbeddingProviderOptions } from "./providers";
+import { withQuotaRetry } from "./quota-retry";
 import { SlidingWindowRateLimiter } from "./rate-limiter";
 
 // Gemini's free tier allows 100 embedding requests per minute, and each
@@ -36,13 +37,21 @@ export async function embedTexts(texts: string[]): Promise<number[][]> {
     return mockEmbeddings(texts.length);
   }
 
-  await embeddingRateLimiter.acquire(texts.length);
+  // The limiter is acquired inside the retried function so every attempt,
+  // including retries, is charged against the budget.
+  return withQuotaRetry(async () => {
+    await embeddingRateLimiter.acquire(texts.length);
 
-  const { embeddings } = await embedMany({
-    model: getEmbeddingModel(),
-    values: texts,
-    providerOptions: getEmbeddingProviderOptions(),
+    const { embeddings } = await embedMany({
+      model: getEmbeddingModel(),
+      values: texts,
+      providerOptions: getEmbeddingProviderOptions(),
+      // The SDK's own retry only honours HTTP Retry-After headers, which
+      // Google doesn't send, so it gives up after ~6s. withQuotaRetry
+      // reads Google's retryDelay instead.
+      maxRetries: 0,
+    });
+
+    return embeddings;
   });
-
-  return embeddings;
 }
