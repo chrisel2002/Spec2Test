@@ -18,10 +18,12 @@ export function HomeClient({
   initialDocuments,
   initialSelectedDocumentId,
   initialRequirements,
+  voiceEnabled,
 }: {
   initialDocuments: DocumentSummary[];
   initialSelectedDocumentId: string | null;
   initialRequirements: RequirementRow[];
+  voiceEnabled: boolean;
 }) {
   const [documents, setDocuments] = useState(initialDocuments);
   const [uploading, setUploading] = useState(false);
@@ -132,11 +134,12 @@ export function HomeClient({
             </TabsList>
             <TabsContent value="requirements" className="mt-4">
               <RequirementsPanel
-                hasDocument={selectedDocumentId !== null}
+                documentId={selectedDocumentId}
                 requirements={requirements}
                 generating={generating}
                 error={generateError}
                 onGenerate={handleGenerateTests}
+                voiceEnabled={voiceEnabled}
               />
             </TabsContent>
             <TabsContent value="traceability" className="mt-4">
@@ -146,7 +149,7 @@ export function HomeClient({
               </p>
             </TabsContent>
             <TabsContent value="chat" className="mt-4 h-[calc(100%-3rem)]">
-              <ChatWithSpec />
+              <ChatWithSpec voiceEnabled={voiceEnabled} />
             </TabsContent>
           </Tabs>
         </main>

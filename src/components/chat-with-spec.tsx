@@ -4,9 +4,12 @@ import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { useState } from "react";
 
+import { ListenButton } from "@/components/listen-button";
 import { Button } from "@/components/ui/button";
 import type { RetrievedChunk } from "@/lib/ai/retrieval";
 import type { SpecUIMessage } from "@/lib/ai/chat-types";
+import { MAX_TTS_CHARS } from "@/lib/voice/schema";
+import { stripCitations } from "@/lib/voice/text";
 
 function Citation({
   index,
@@ -46,12 +49,22 @@ function Citation({
   );
 }
 
-export function ChatWithSpec() {
+export function ChatWithSpec({ voiceEnabled }: { voiceEnabled: boolean }) {
   const { messages, sendMessage, status } = useChat<SpecUIMessage>({
     transport: new DefaultChatTransport({ api: "/api/chat" }),
   });
   const [input, setInput] = useState("");
   const [openCitation, setOpenCitation] = useState<string | null>(null);
+
+  // Only finished assistant answers: reading a half-streamed answer would
+  // cut off mid-sentence and cache a truncated clip. Answers over the TTS
+  // length cap get no button rather than a request the server would reject.
+  function canListen(role: string, text: string, isLast: boolean) {
+    if (!voiceEnabled || role !== "assistant") return false;
+    const streaming = isLast && (status === "streaming" || status === "submitted");
+    const spoken = stripCitations(text);
+    return !streaming && spoken.length > 0 && spoken.length <= MAX_TTS_CHARS;
+  }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -69,7 +82,7 @@ export function ChatWithSpec() {
             the retrieved excerpts and cite their source.
           </p>
         )}
-        {messages.map((message) => {
+        {messages.map((message, index) => {
           const citations =
             message.parts.find((p) => p.type === "data-citations")?.data ??
             [];
@@ -80,9 +93,14 @@ export function ChatWithSpec() {
 
           return (
             <div key={message.id} className="text-sm">
-              <p className="mb-1 font-medium">
-                {message.role === "user" ? "You" : "Assistant"}
-              </p>
+              <div className="mb-1 flex items-center gap-1">
+                <p className="font-medium">
+                  {message.role === "user" ? "You" : "Assistant"}
+                </p>
+                {canListen(message.role, text, index === messages.length - 1) && (
+                  <ListenButton getText={() => stripCitations(text)} />
+                )}
+              </div>
               <p className="whitespace-pre-wrap">{text}</p>
               {citations.length > 0 && (
                 <div className="mt-2 flex flex-wrap gap-2">

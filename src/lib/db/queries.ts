@@ -53,6 +53,33 @@ export async function getLatestRunSteps(documentId: string) {
     .orderBy(asc(agentRuns.startedAt));
 }
 
+// Counts for the spoken run summary. Two aggregate queries instead of
+// loading every row: the summary only needs the numbers.
+export async function getRunSummaryCounts(documentId: string) {
+  const [reqCounts] = await db
+    .select({
+      requirementCount: sql<number>`count(*)`.mapWith(Number),
+      ambiguousCount:
+        sql<number>`count(*) filter (where ${requirements.isAmbiguous})`.mapWith(
+          Number,
+        ),
+    })
+    .from(requirements)
+    .where(eq(requirements.documentId, documentId));
+
+  const [testCounts] = await db
+    .select({ testCaseCount: sql<number>`count(*)`.mapWith(Number) })
+    .from(testCases)
+    .innerJoin(requirements, eq(testCases.requirementId, requirements.id))
+    .where(eq(requirements.documentId, documentId));
+
+  return {
+    requirementCount: reqCounts?.requirementCount ?? 0,
+    ambiguousCount: reqCounts?.ambiguousCount ?? 0,
+    testCaseCount: testCounts?.testCaseCount ?? 0,
+  };
+}
+
 export async function listRequirementsWithTestCases(documentId: string) {
   const reqRows = await db
     .select()

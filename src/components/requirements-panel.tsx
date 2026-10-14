@@ -1,3 +1,4 @@
+import { ListenButton } from "@/components/listen-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
@@ -81,20 +82,29 @@ function RequirementItem({ requirement }: { requirement: RequirementRow }) {
   );
 }
 
+async function fetchRunSummary(documentId: string): Promise<string> {
+  const response = await fetch(`/api/documents/${documentId}/summary`);
+  if (!response.ok) throw new Error("Couldn't load the run summary");
+  const body: { summary: string } = await response.json();
+  return body.summary;
+}
+
 export function RequirementsPanel({
-  hasDocument,
+  documentId,
   requirements,
   generating,
   error,
   onGenerate,
+  voiceEnabled,
 }: {
-  hasDocument: boolean;
+  documentId: string | null;
   requirements: RequirementRow[];
   generating: boolean;
   error: string | null;
   onGenerate: () => void;
+  voiceEnabled: boolean;
 }) {
-  if (!hasDocument) {
+  if (!documentId) {
     return (
       <p className="text-sm text-muted-foreground">
         Upload a spec to get started.
@@ -108,6 +118,12 @@ export function RequirementsPanel({
         <Button onClick={onGenerate} disabled={generating}>
           {generating ? "Generating…" : "Generate tests"}
         </Button>
+        {voiceEnabled && requirements.length > 0 && !generating && (
+          <ListenButton
+            label="Listen to summary"
+            getText={() => fetchRunSummary(documentId)}
+          />
+        )}
         {error && <p className="text-sm text-destructive">{error}</p>}
       </div>
       {requirements.length === 0 && !generating && (
