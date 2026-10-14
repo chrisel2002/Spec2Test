@@ -17,8 +17,10 @@ export type IngestResult = {
   alreadyExists: boolean;
 };
 
-// Google's embedMany has no hard documented cap, but batching keeps each
-// request small and bounds how much work one failed call has to retry.
+// One batchEmbedContents call per batch (Google caps it at 100 texts).
+// Batching saves round trips but not quota: Gemini counts each text as a
+// request, so the rate limiter in embedTexts() still charges 20 per batch.
+// Small batches also bound how much work one failed call has to redo.
 const EMBEDDING_BATCH_SIZE = 20;
 
 function parseByMimeType(
