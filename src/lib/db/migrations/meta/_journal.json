@@ -29,6 +29,13 @@
       "when": 1791316934898,
       "tag": "0003_agent_pipeline_tables",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792003760538,
+      "tag": "0004_audio_cache",
+      "breakpoints": true
     }
   ]
 }

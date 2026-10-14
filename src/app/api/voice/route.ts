@@ -1,8 +1,8 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 
+import { getSpeech } from "@/lib/voice/cache";
 import { isVoiceEnabled } from "@/lib/voice/config";
 import { ttsRequestSchema } from "@/lib/voice/schema";
-import { synthesizeSpeech } from "@/lib/voice/synthesize";
 
 export const dynamic = "force-dynamic";
 
@@ -27,9 +27,25 @@ export async function POST(request: Request) {
   }
 
   try {
-    const audio = await synthesizeSpeech(parsed.data.text);
+    const { audio, cacheHit, pendingCacheWrite } = await getSpeech(
+      parsed.data.text,
+    );
+
+    if (pendingCacheWrite) {
+      // A failed cache write shouldn't fail the request: the user already
+      // has their audio, it just won't be cached for next time.
+      after(() =>
+        pendingCacheWrite.catch((error: unknown) =>
+          console.error("Failed to cache audio", error),
+        ),
+      );
+    }
+
     return new Response(audio, {
-      headers: { "Content-Type": "audio/mpeg" },
+      headers: {
+        "Content-Type": "audio/mpeg",
+        "X-Audio-Cache": cacheHit ? "HIT" : "MISS",
+      },
     });
   } catch (error) {
     console.error("Text-to-speech failed", error);

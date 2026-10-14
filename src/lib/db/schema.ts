@@ -1,5 +1,6 @@
 import {
   boolean,
+  customType,
   index,
   integer,
   json,
@@ -150,4 +151,24 @@ export const agentRuns = pgTable("agent_runs", {
   startedAt: timestamp("started_at", { withTimezone: true }),
   finishedAt: timestamp("finished_at", { withTimezone: true }),
   error: text("error"),
+});
+
+// Drizzle 0.45 has no built-in bytea column, so declare one. postgres-js
+// already returns bytea values as Node Buffers, so no conversion is needed.
+const bytea = customType<{ data: Buffer; driverData: Buffer }>({
+  dataType() {
+    return "bytea";
+  },
+});
+
+// Generated MP3s, keyed by sha256(text, voice, model), so replaying the same
+// text doesn't spend ElevenLabs quota twice. Stored in Postgres rather than
+// on disk because Cloud Run's filesystem is per-instance and wiped on
+// restart. No eviction yet: clips are ~30-100 KB, fine at portfolio scale.
+export const audioCache = pgTable("audio_cache", {
+  hash: text("hash").primaryKey(),
+  audio: bytea("audio").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
 });
