@@ -4,6 +4,14 @@ Turn software requirements into test cases with AI agents.
 
 **[Demo GIF placeholder — add once the upload → test case flow works end to end]**
 
+## Features
+
+- **Upload a spec** as PDF or Markdown; it's chunked and embedded for retrieval
+- **Requirement extraction** into atomic requirements, with ambiguous or untestable ones flagged and a suggested rewrite
+- **Test case generation** in Given/When/Then form, linked to each requirement
+- **Chat with spec**: questions answered only from retrieved excerpts, with citations
+- **Voice output (ElevenLabs)**: "Listen" buttons read chat answers and a short run summary aloud. Optional, and hidden when no API key is set
+
 ## Tech stack
 
 - **App:** Next.js (App Router) with TypeScript in strict mode
@@ -44,6 +52,7 @@ pnpm test:integration   run tests against a real DB + embedding API (needs .env.
 pnpm test:e2e           run Playwright tests
 pnpm eval               run the eval script
 pnpm db:generate        generate a new Drizzle migration after changing the schema
+pnpm tts:hello          smoke-test ElevenLabs: writes output/hello.mp3 (needs ELEVENLABS_API_KEY)
 pnpm lint               lint and type-check
 ```
 
@@ -150,3 +159,26 @@ one `docker compose up` instead of standing up a second service. The
 trade-off is that pgvector wouldn't be the right call at a much larger
 scale (tens of millions of vectors, or needing features like serverless
 auto-scaling of the index) — but that's not this project.
+
+### Why voice is generated server-side and cached
+
+The browser never talks to ElevenLabs directly. It posts text to
+`/api/voice`, and the server calls ElevenLabs with the key from its own
+environment and streams the MP3 back. Calling ElevenLabs from the client
+would mean shipping the API key to every visitor. The server-side route is
+also where the Zod length cap (1,000 characters) is enforced, so nobody can
+drain the quota with huge requests.
+
+Generated audio is cached in Postgres (`audio_cache`), keyed by a SHA-256
+of the text, voice ID, and model ID. ElevenLabs bills per character, and
+the same run summary or chat answer is often played more than once, so a
+replay costs one primary-key lookup instead of quota. Postgres beat a
+folder on disk because Cloud Run's filesystem is per-instance and wiped on
+every restart, so a disk cache would silently stop working once deployed.
+The trade-off is binary blobs in the database and no eviction yet. Clips
+are ~30–100 KB, which is fine at this scale; an object store like GCS
+would be the next step if it grew.
+
+Voice is optional. Without `ELEVENLABS_API_KEY`, the server tells the UI
+voice is off (a boolean, never the key), the Listen buttons don't render,
+and `/api/voice` returns 503. That's also why CI needs no ElevenLabs key.
