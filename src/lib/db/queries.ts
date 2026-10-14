@@ -8,7 +8,11 @@ export async function listDocumentSummaries() {
     .select({
       id: documents.id,
       filename: documents.filename,
+      status: documents.status,
+      statusMessage: documents.statusMessage,
       chunkCount: sql<number>`count(${chunks.id})`.mapWith(Number),
+      // count(column) skips nulls, so this only counts embedded chunks.
+      embeddedCount: sql<number>`count(${chunks.embedding})`.mapWith(Number),
     })
     .from(documents)
     .leftJoin(chunks, eq(chunks.documentId, documents.id))

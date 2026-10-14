@@ -28,6 +28,7 @@ export function HomeClient({
   const [documents, setDocuments] = useState(initialDocuments);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [resumingId, setResumingId] = useState<string | null>(null);
 
   const [selectedDocumentId, setSelectedDocumentId] = useState(
     initialSelectedDocumentId,
@@ -44,6 +45,25 @@ export function HomeClient({
     if (response.ok) {
       const body = await response.json();
       setRequirements(body.requirements);
+    }
+  }
+
+  // The sidebar shows each document's status and message, so after any
+  // ingest/resume the list is simply re-fetched rather than patched.
+  async function refreshDocuments() {
+    const listResponse = await fetch("/api/documents");
+    if (listResponse.ok) {
+      setDocuments(await listResponse.json());
+    }
+  }
+
+  async function handleResume(documentId: string) {
+    setResumingId(documentId);
+    try {
+      await fetch(`/api/documents/${documentId}/embed`, { method: "POST" });
+    } finally {
+      await refreshDocuments();
+      setResumingId(null);
     }
   }
 
@@ -71,11 +91,7 @@ export function HomeClient({
         throw new Error(uploadBody.error ?? "Upload failed");
       }
 
-      const listResponse = await fetch("/api/documents");
-      if (listResponse.ok) {
-        setDocuments(await listResponse.json());
-      }
-
+      await refreshDocuments();
       await handleSelectDocument(uploadBody.documentId);
     } catch (err) {
       setUploadError(err instanceof Error ? err.message : "Upload failed");
@@ -122,6 +138,8 @@ export function HomeClient({
           error={uploadError}
           selectedId={selectedDocumentId}
           onSelect={handleSelectDocument}
+          resumingId={resumingId}
+          onResume={handleResume}
         />
         <main className="flex-1 overflow-auto p-6">
           <Tabs defaultValue="requirements">

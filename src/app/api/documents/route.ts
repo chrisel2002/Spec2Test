@@ -45,7 +45,11 @@ export async function POST(request: Request) {
       mimeType,
       data: Buffer.from(await file.arrayBuffer()),
     });
-    return NextResponse.json(result);
+    // 202 Accepted: the document is stored but embedding is paused until
+    // the quota frees up. The body's statusMessage says why.
+    return NextResponse.json(result, {
+      status: result.status === "waiting" ? 202 : 200,
+    });
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Ingestion failed" },
