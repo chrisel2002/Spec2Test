@@ -27,6 +27,17 @@ export const agentRunStatusEnum = pgEnum("agent_run_status", [
   "failed",
 ]);
 
+// embedding: chunks stored, embeddings in progress
+// waiting:   paused because the embedding quota ran out; resumable
+// failed:    stopped on a non-quota error; resumable
+// ready:     every chunk has an embedding
+export const documentStatusEnum = pgEnum("document_status", [
+  "embedding",
+  "waiting",
+  "failed",
+  "ready",
+]);
+
 export const testCaseTypeEnum = pgEnum("test_case_type", [
   "positive",
   "negative",
@@ -41,6 +52,9 @@ export const documents = pgTable("documents", {
   // SHA-256 of the raw uploaded bytes. Lets the upload endpoint detect a
   // re-upload of the same file and skip re-parsing/re-embedding it.
   contentHash: text("content_hash").notNull().unique(),
+  status: documentStatusEnum("status").notNull().default("embedding"),
+  // User-facing explanation for "waiting"/"failed", e.g. which quota ran out.
+  statusMessage: text("status_message"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

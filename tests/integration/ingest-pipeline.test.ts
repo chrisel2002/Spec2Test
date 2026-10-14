@@ -30,7 +30,9 @@ describe("ingestDocument", () => {
     documentId = result.documentId;
 
     expect(result.alreadyExists).toBe(false);
+    expect(result.status).toBe("ready");
     expect(result.chunkCount).toBeGreaterThan(0);
+    expect(result.embeddedCount).toBe(result.chunkCount);
 
     const stored = await db
       .select()

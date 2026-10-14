@@ -1,4 +1,4 @@
-import { cosineDistance, desc, sql } from "drizzle-orm";
+import { cosineDistance, desc, isNotNull, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db/client";
 import { chunks } from "@/lib/db/schema";
@@ -37,6 +37,8 @@ export async function retrieveRelevantChunks(
       similarity,
     })
     .from(chunks)
+    // Chunks of a document whose embedding is paused have no vector yet.
+    .where(isNotNull(chunks.embedding))
     .orderBy(desc(similarity))
     .limit(topK);
 }
