@@ -109,3 +109,35 @@ describe("extractRequirementsFromChunks", () => {
     expect(total).toEqual({ inputTokens: 15, outputTokens: 35, totalTokens: 50 });
   });
 });
+
+describe("extractRequirementsFromChunks onBatch", () => {
+  it("reports each batch's requirements and progress as soon as they exist", async () => {
+    mockGenerateStructured
+      .mockResolvedValueOnce({
+        object: {
+          requirements: [{ title: "A", text: "The system shall do A.", sourceChunkRefs: ["chunk_1"] }],
+        },
+        usage: usage(),
+      })
+      .mockResolvedValueOnce({
+        object: {
+          requirements: [{ title: "B", text: "The system shall do B.", sourceChunkRefs: ["chunk_2"] }],
+        },
+        usage: usage(),
+      });
+
+    const chunks = Array.from({ length: 7 }, (_, i) => ({ id: `chunk-${i}`, content: `c${i}` }));
+    const batches: { codes: string[]; done: number; total: number }[] = [];
+    await extractRequirementsFromChunks(chunks, {
+      onBatch: async (batch, progress) => {
+        batches.push({ codes: batch.map((r) => r.id), ...progress });
+      },
+    });
+
+    // Numbering continues across batches rather than restarting.
+    expect(batches).toEqual([
+      { codes: ["REQ-01"], done: 5, total: 7 },
+      { codes: ["REQ-02"], done: 7, total: 7 },
+    ]);
+  });
+});

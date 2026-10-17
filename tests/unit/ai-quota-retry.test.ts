@@ -1,7 +1,8 @@
-import { APICallError } from "ai";
+import { APICallError, RetryError } from "ai";
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  isRateLimitError,
   parseQuotaError,
   QuotaExceededError,
   withQuotaRetry,
@@ -163,5 +164,40 @@ describe("withQuotaRetry", () => {
     await expect(withQuotaRetry(fn, { sleep })).rejects.toBe(boom);
     expect(fn).toHaveBeenCalledOnce();
     expect(sleeps).toEqual([]);
+  });
+});
+
+describe("isRateLimitError", () => {
+  it("recognises a raw 429", () => {
+    expect(isRateLimitError(googleQuotaError())).toBe(true);
+  });
+
+  it("recognises the AI SDK's RetryError when its last attempt was a 429", () => {
+    const error = new RetryError({
+      message: "Failed after 3 attempts",
+      reason: "maxRetriesExceeded",
+      errors: [googleQuotaError(), googleQuotaError()],
+    });
+    expect(isRateLimitError(error)).toBe(true);
+  });
+
+  it("recognises our own QuotaExceededError", () => {
+    expect(isRateLimitError(new QuotaExceededError(true))).toBe(true);
+  });
+
+  it("does not treat other failures as rate limits", () => {
+    const serverError = new APICallError({
+      message: "Internal error",
+      url: "https://example.test",
+      requestBodyValues: {},
+      statusCode: 500,
+    });
+    expect(isRateLimitError(serverError)).toBe(false);
+    expect(isRateLimitError(new Error("Schema validation failed"))).toBe(false);
+    expect(
+      isRateLimitError(
+        new RetryError({ message: "x", reason: "maxRetriesExceeded", errors: [serverError] }),
+      ),
+    ).toBe(false);
   });
 });

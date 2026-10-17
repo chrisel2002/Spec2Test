@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { formatFileSize } from "@/lib/format";
+import { formatFileSize, formatRelativeTime } from "@/lib/format";
 
 describe("formatFileSize", () => {
   it("formats zero bytes", () => {
@@ -21,5 +21,19 @@ describe("formatFileSize", () => {
 
   it("throws for negative input", () => {
     expect(() => formatFileSize(-1)).toThrow(RangeError);
+  });
+});
+
+describe("formatRelativeTime", () => {
+  const now = Date.parse("2026-10-17T12:00:00.000Z");
+
+  it("says just now for under a minute", () => {
+    expect(formatRelativeTime("2026-10-17T11:59:30.000Z", now)).toBe("just now");
+  });
+
+  it("uses the largest whole unit", () => {
+    expect(formatRelativeTime("2026-10-17T11:55:00.000Z", now)).toBe("5 minutes ago");
+    expect(formatRelativeTime("2026-10-17T09:00:00.000Z", now)).toBe("3 hours ago");
+    expect(formatRelativeTime("2026-10-16T12:00:00.000Z", now)).toBe("yesterday");
   });
 });
