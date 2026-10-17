@@ -1,27 +1,10 @@
 import { ListenButton } from "@/components/listen-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import type { RequirementView, TestCaseView } from "@/lib/runs/types";
 
-export type TestCaseRow = {
-  id: string;
-  title: string;
-  type: "positive" | "negative" | "boundary";
-  given: string;
-  when: string;
-  then: string;
-  basedOnAssumption: boolean;
-};
-
-export type RequirementRow = {
-  id: string;
-  code: string;
-  title: string;
-  text: string;
-  isAmbiguous: boolean;
-  ambiguityReason: string | null;
-  suggestedRewrite: string | null;
-  testCases: TestCaseRow[];
-};
+type TestCaseRow = TestCaseView;
+type RequirementRow = RequirementView & { testCases: TestCaseRow[] };
 
 function TestCaseItem({ testCase }: { testCase: TestCaseRow }) {
   return (
@@ -82,8 +65,8 @@ function RequirementItem({ requirement }: { requirement: RequirementRow }) {
   );
 }
 
-async function fetchRunSummary(documentId: string): Promise<string> {
-  const response = await fetch(`/api/documents/${documentId}/summary`);
+async function fetchRunSummary(runId: string): Promise<string> {
+  const response = await fetch(`/api/runs/${runId}/summary`);
   if (!response.ok) throw new Error("Couldn't load the run summary");
   const body: { summary: string } = await response.json();
   return body.summary;
@@ -91,19 +74,28 @@ async function fetchRunSummary(documentId: string): Promise<string> {
 
 export function RequirementsPanel({
   documentId,
-  requirements,
+  runId,
+  requirements: requirementViews,
+  testCases,
   generating,
   error,
   onGenerate,
   voiceEnabled,
 }: {
   documentId: string | null;
-  requirements: RequirementRow[];
+  runId: string | null;
+  requirements: RequirementView[];
+  testCases: TestCaseView[];
   generating: boolean;
   error: string | null;
   onGenerate: () => void;
   voiceEnabled: boolean;
 }) {
+  const requirements: RequirementRow[] = requirementViews.map((r) => ({
+    ...r,
+    testCases: testCases.filter((tc) => tc.requirementId === r.id),
+  }));
+
   if (!documentId) {
     return (
       <p className="text-sm text-muted-foreground">
@@ -118,10 +110,10 @@ export function RequirementsPanel({
         <Button onClick={onGenerate} disabled={generating}>
           {generating ? "Generating…" : "Generate tests"}
         </Button>
-        {voiceEnabled && requirements.length > 0 && !generating && (
+        {voiceEnabled && runId && requirements.length > 0 && !generating && (
           <ListenButton
             label="Listen to summary"
-            getText={() => fetchRunSummary(documentId)}
+            getText={() => fetchRunSummary(runId)}
           />
         )}
         {error && <p className="text-sm text-destructive">{error}</p>}

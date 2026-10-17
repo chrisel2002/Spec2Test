@@ -1,6 +1,14 @@
-import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
+import { asc, desc, eq, inArray, sql } from "drizzle-orm";
 
 import { db } from "./client";
+import type { RunDetail, RunSummary } from "@/lib/runs/types";
+import {
+  toRequirementView,
+  toRunSummary,
+  toStepView,
+  toTestCaseView,
+} from "@/lib/runs/views";
+
 import { agentRuns, chunks, documents, requirements, runs, testCases } from "./schema";
 
 export async function listDocumentSummaries() {
@@ -43,27 +51,9 @@ export async function getLatestRunId(documentId: string): Promise<string | null>
   return latest?.id ?? null;
 }
 
-// Returns the step rows (status, usage, cost) for a document's most recent
-// agent run, or [] if it has never had one.
-export async function getLatestRunSteps(documentId: string) {
-  const runId = await getLatestRunId(documentId);
-  if (!runId) return [];
-
-  return db
-    .select()
-    .from(agentRuns)
-    .where(and(eq(agentRuns.documentId, documentId), eq(agentRuns.runId, runId)))
-    .orderBy(asc(agentRuns.startedAt));
-}
-
 // Counts for the spoken run summary. Two aggregate queries instead of
 // loading every row: the summary only needs the numbers.
-export async function getRunSummaryCounts(documentId: string) {
-  const runId = await getLatestRunId(documentId);
-  if (!runId) {
-    return { requirementCount: 0, ambiguousCount: 0, testCaseCount: 0 };
-  }
-
+export async function getRunSummaryCounts(runId: string) {
   const [reqCounts] = await db
     .select({
       requirementCount: sql<number>`count(*)`.mapWith(Number),
@@ -88,33 +78,52 @@ export async function getRunSummaryCounts(documentId: string) {
   };
 }
 
-export async function listRequirementsWithTestCases(documentId: string) {
-  const runId = await getLatestRunId(documentId);
-  if (!runId) return [];
-
-  const reqRows = await db
+export async function listRunsForDocument(
+  documentId: string,
+): Promise<RunSummary[]> {
+  const rows = await db
     .select()
-    .from(requirements)
-    .where(eq(requirements.runId, runId))
-    .orderBy(asc(requirements.code));
+    .from(runs)
+    .where(eq(runs.documentId, documentId))
+    .orderBy(desc(runs.createdAt));
+  return rows.map(toRunSummary);
+}
 
-  const reqIds = reqRows.map((r) => r.id);
-  const testRows = reqIds.length
+// Everything the UI needs to render one run, or null if it doesn't exist.
+export async function getRunDetail(runId: string): Promise<RunDetail | null> {
+  const [run] = await db.select().from(runs).where(eq(runs.id, runId));
+  if (!run) return null;
+
+  const [stepRows, requirementRows] = await Promise.all([
+    db
+      .select()
+      .from(agentRuns)
+      .where(eq(agentRuns.runId, runId))
+      .orderBy(asc(agentRuns.startedAt)),
+    db
+      .select()
+      .from(requirements)
+      .where(eq(requirements.runId, runId))
+      .orderBy(asc(requirements.code)),
+  ]);
+
+  const testRows = requirementRows.length
     ? await db
         .select()
         .from(testCases)
-        .where(inArray(testCases.requirementId, reqIds))
+        .where(
+          inArray(
+            testCases.requirementId,
+            requirementRows.map((r) => r.id),
+          ),
+        )
+        .orderBy(asc(testCases.createdAt), asc(testCases.id))
     : [];
 
-  const testsByRequirement = new Map<string, typeof testRows>();
-  for (const testCase of testRows) {
-    const list = testsByRequirement.get(testCase.requirementId) ?? [];
-    list.push(testCase);
-    testsByRequirement.set(testCase.requirementId, list);
-  }
-
-  return reqRows.map((requirement) => ({
-    ...requirement,
-    testCases: testsByRequirement.get(requirement.id) ?? [],
-  }));
+  return {
+    run: toRunSummary(run),
+    steps: stepRows.map(toStepView),
+    requirements: requirementRows.map(toRequirementView),
+    testCases: testRows.map(toTestCaseView),
+  };
 }

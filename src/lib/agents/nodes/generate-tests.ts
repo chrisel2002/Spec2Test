@@ -4,7 +4,7 @@ import {
   GENERATE_TESTS_SYSTEM_PROMPT,
 } from "@/lib/ai/prompts/generate-tests";
 
-import { chunkArray } from "../batch";
+import { type BatchProgress, chunkArray } from "../batch";
 import { type Requirement, type TestCase, TestGenerationBatchResultSchema } from "../schemas";
 import { addUsage, emptyUsage, type Usage } from "../usage";
 
@@ -22,12 +22,17 @@ export function effectiveText(requirement: Requirement): string {
 
 // Pure logic: batches requirements, asks the model for 2-4 Given/When/Then
 // test cases per requirement, and links each one back to its requirement's
-// code. No DB access.
+// code. No DB access. onBatch gets each batch's test cases, with progress
+// counted in requirements ("5/12"), as soon as they're generated.
 export async function generateTestsForRequirements(
   requirements: Requirement[],
+  options: {
+    onBatch?: (batch: TestCase[], progress: BatchProgress) => Promise<void>;
+  } = {},
 ): Promise<{ testCases: TestCase[]; usage: Usage }> {
   let usage = emptyUsage();
   const testCases: TestCase[] = [];
+  let processedRequirements = 0;
 
   for (const batch of chunkArray(requirements, REQUIREMENT_BATCH_SIZE)) {
     const { object, usage: batchUsage } = await generateStructured({
@@ -43,14 +48,18 @@ export async function generateTestsForRequirements(
       );
     }
 
-    batch.forEach((requirement, i) => {
-      for (const testCase of object.results[i].testCases) {
-        testCases.push({
-          ...testCase,
-          requirementId: requirement.id,
-          basedOnAssumption: requirement.isAmbiguous,
-        });
-      }
+    const batchTestCases = batch.flatMap((requirement, i) =>
+      object.results[i].testCases.map((testCase) => ({
+        ...testCase,
+        requirementId: requirement.id,
+        basedOnAssumption: requirement.isAmbiguous,
+      })),
+    );
+    testCases.push(...batchTestCases);
+    processedRequirements += batch.length;
+    await options.onBatch?.(batchTestCases, {
+      done: processedRequirements,
+      total: requirements.length,
     });
   }
 

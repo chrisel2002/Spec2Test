@@ -4,7 +4,7 @@ import {
 } from "@/lib/ai/prompts/check-ambiguity";
 import { generateStructured } from "@/lib/ai/generate-structured";
 
-import { chunkArray } from "../batch";
+import { type BatchProgress, chunkArray } from "../batch";
 import { AmbiguityBatchResultSchema, type Requirement } from "../schemas";
 import { addUsage, emptyUsage, type Usage } from "../usage";
 
@@ -12,9 +12,13 @@ const AMBIGUITY_BATCH_SIZE = 5;
 
 // Pure logic: batches requirements, asks the model to judge testability for
 // each, and returns the requirements with isAmbiguous/ambiguityReason/
-// suggestedRewrite filled in. No DB access.
+// suggestedRewrite filled in. No DB access. onBatch gets each judged batch
+// as soon as it's ready.
 export async function checkAmbiguityForRequirements(
   requirements: Requirement[],
+  options: {
+    onBatch?: (batch: Requirement[], progress: BatchProgress) => Promise<void>;
+  } = {},
 ): Promise<{ requirements: Requirement[]; usage: Usage }> {
   let usage = emptyUsage();
   const updated: Requirement[] = [];
@@ -33,14 +37,19 @@ export async function checkAmbiguityForRequirements(
       );
     }
 
-    batch.forEach((requirement, i) => {
+    const judged = batch.map((requirement, i) => {
       const result = object.results[i];
-      updated.push({
+      return {
         ...requirement,
         isAmbiguous: result.isAmbiguous,
         ambiguityReason: result.reason,
         suggestedRewrite: result.suggestedRewrite,
-      });
+      };
+    });
+    updated.push(...judged);
+    await options.onBatch?.(judged, {
+      done: updated.length,
+      total: requirements.length,
     });
   }
 

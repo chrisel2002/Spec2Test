@@ -5,7 +5,7 @@ import { useState } from "react";
 import { AppHeader } from "@/components/app-header";
 import { ChatWithSpec } from "@/components/chat-with-spec";
 import type { DocumentSummary } from "@/components/document-list";
-import { RequirementsPanel, type RequirementRow } from "@/components/requirements-panel";
+import { RequirementsPanel } from "@/components/requirements-panel";
 import { Sidebar } from "@/components/sidebar";
 import {
   Tabs,
@@ -13,16 +13,24 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs";
+import { useRun } from "@/hooks/use-run";
+import type { RunDetail, RunSummary } from "@/lib/runs/types";
+
+function emptyDetail(run: RunSummary): RunDetail {
+  return { run, steps: [], requirements: [], testCases: [] };
+}
 
 export function HomeClient({
   initialDocuments,
   initialSelectedDocumentId,
-  initialRequirements,
+  initialRuns,
+  initialRunDetail,
   voiceEnabled,
 }: {
   initialDocuments: DocumentSummary[];
   initialSelectedDocumentId: string | null;
-  initialRequirements: RequirementRow[];
+  initialRuns: RunSummary[];
+  initialRunDetail: RunDetail | null;
   voiceEnabled: boolean;
 }) {
   const [documents, setDocuments] = useState(initialDocuments);
@@ -33,19 +41,29 @@ export function HomeClient({
   const [selectedDocumentId, setSelectedDocumentId] = useState(
     initialSelectedDocumentId,
   );
-  const [requirements, setRequirements] = useState(initialRequirements);
-  const [generating, setGenerating] = useState(false);
-  const [generateError, setGenerateError] = useState<string | null>(null);
+  const [runs, setRuns] = useState(initialRuns);
+  const run = useRun(initialRunDetail);
+  const [startError, setStartError] = useState<string | null>(null);
 
-  // Event-driven, not an effect: called directly from the upload/select/
-  // generate handlers below, each a response to a user action rather than
-  // a reactive sync-on-mount.
-  async function loadRequirementsFor(documentId: string) {
-    const response = await fetch(`/api/documents/${documentId}/run`);
-    if (response.ok) {
-      const body = await response.json();
-      setRequirements(body.requirements);
+  const running = run.detail?.run.status === "running";
+
+  // Event-driven, not an effect: called directly from the upload/select
+  // handlers below, each a response to a user action rather than a
+  // reactive sync-on-mount.
+  async function loadLatestRunFor(documentId: string) {
+    const runsResponse = await fetch(`/api/documents/${documentId}/runs`);
+    const runList: RunSummary[] = runsResponse.ok
+      ? await runsResponse.json()
+      : [];
+    setRuns(runList);
+
+    const latest = runList[0];
+    if (!latest) {
+      run.load(null);
+      return;
     }
+    const detailResponse = await fetch(`/api/runs/${latest.id}`);
+    run.load(detailResponse.ok ? await detailResponse.json() : null);
   }
 
   // The sidebar shows each document's status and message, so after any
@@ -69,8 +87,8 @@ export function HomeClient({
 
   async function handleSelectDocument(documentId: string) {
     setSelectedDocumentId(documentId);
-    setGenerateError(null);
-    await loadRequirementsFor(documentId);
+    setStartError(null);
+    await loadLatestRunFor(documentId);
   }
 
   async function handleUpload(file: File) {
@@ -100,32 +118,24 @@ export function HomeClient({
     }
   }
 
-  async function handleGenerateTests() {
+  // Starting a run only creates it; loading its (empty) detail with status
+  // "running" is what makes useRun open the event stream.
+  async function handleStartRun() {
     if (!selectedDocumentId) return;
+    setStartError(null);
 
-    setGenerating(true);
-    setGenerateError(null);
-
-    try {
-      const response = await fetch(
-        `/api/documents/${selectedDocumentId}/run`,
-        { method: "POST" },
-      );
-      const body = await response.json();
-
-      if (!response.ok) {
-        throw new Error(body.error ?? "Run failed");
-      }
-      if (body.stopReason) {
-        throw new Error(body.stopReason);
-      }
-
-      await loadRequirementsFor(selectedDocumentId);
-    } catch (err) {
-      setGenerateError(err instanceof Error ? err.message : "Run failed");
-    } finally {
-      setGenerating(false);
+    const response = await fetch(`/api/documents/${selectedDocumentId}/runs`, {
+      method: "POST",
+    });
+    const body = await response.json();
+    if (!response.ok) {
+      setStartError(body.error ?? "Couldn't start the run");
+      return;
     }
+
+    const newRun: RunSummary = body;
+    setRuns((previous) => [newRun, ...previous]);
+    run.load(emptyDetail(newRun));
   }
 
   return (
@@ -153,17 +163,19 @@ export function HomeClient({
             <TabsContent value="requirements" className="mt-4">
               <RequirementsPanel
                 documentId={selectedDocumentId}
-                requirements={requirements}
-                generating={generating}
-                error={generateError}
-                onGenerate={handleGenerateTests}
+                runId={run.detail?.run.id ?? null}
+                requirements={run.detail?.requirements ?? []}
+                testCases={run.detail?.testCases ?? []}
+                generating={running}
+                error={startError ?? run.detail?.run.error ?? null}
+                onGenerate={handleStartRun}
                 voiceEnabled={voiceEnabled}
               />
             </TabsContent>
             <TabsContent value="traceability" className="mt-4">
               <p className="text-sm text-muted-foreground">
                 The traceability matrix will map requirements to their
-                generated test cases.
+                generated test cases ({runs.length} runs so far).
               </p>
             </TabsContent>
             <TabsContent value="chat" className="mt-4 h-[calc(100%-3rem)]">

@@ -1,31 +1,45 @@
+import type { LangGraphRunnableConfig } from "@langchain/langgraph";
 import { eq } from "drizzle-orm";
 
 import { db } from "@/lib/db/client";
 import { agentRuns } from "@/lib/db/schema";
 import { requireEnv } from "@/lib/env";
+import type { RunEvent, StepName } from "@/lib/runs/types";
+import { toStepView } from "@/lib/runs/views";
 
 import { estimateCostUsd } from "./cost";
 import type { Usage } from "./usage";
 
-export type StepName =
-  | "extract_requirements"
-  | "check_ambiguity"
-  | "generate_tests";
+export type Emit = (event: RunEvent) => void;
 
-export async function startStep(
-  documentId: string,
-  runId: string,
-  step: StepName,
-): Promise<string> {
+// LangGraph hands every node a `writer` when the graph is run with
+// streamMode "custom": whatever a node writes comes out of graph.stream()
+// in order, interleaved with the node's own progress. Outside a streamed
+// run (unit tests, a plain invoke) there is no writer and events are
+// dropped, so nodes never need to know whether anyone is listening.
+export function emitterFrom(config: LangGraphRunnableConfig): Emit {
+  return (event) => config.writer?.(event);
+}
+
+export type StepContext = { documentId: string; runId: string; emit: Emit };
+
+async function startStep(ctx: StepContext, step: StepName) {
   const [row] = await db
     .insert(agentRuns)
-    .values({ documentId, runId, step, status: "running", startedAt: new Date() })
-    .returning({ id: agentRuns.id });
+    .values({
+      documentId: ctx.documentId,
+      runId: ctx.runId,
+      step,
+      status: "running",
+      startedAt: new Date(),
+    })
+    .returning();
+  ctx.emit({ type: "step", step: toStepView(row) });
   return row.id;
 }
 
-export async function succeedStep(rowId: string, usage: Usage): Promise<void> {
-  await db
+async function succeedStep(ctx: StepContext, rowId: string, usage: Usage) {
+  const [row] = await db
     .update(agentRuns)
     .set({
       status: "succeeded",
@@ -33,35 +47,39 @@ export async function succeedStep(rowId: string, usage: Usage): Promise<void> {
       tokenUsage: usage,
       costUsd: estimateCostUsd(requireEnv("MODEL_NAME"), usage),
     })
-    .where(eq(agentRuns.id, rowId));
+    .where(eq(agentRuns.id, rowId))
+    .returning();
+  ctx.emit({ type: "step", step: toStepView(row) });
 }
 
-export async function failStep(rowId: string, error: unknown): Promise<void> {
-  await db
+async function failStep(ctx: StepContext, rowId: string, error: unknown) {
+  const [row] = await db
     .update(agentRuns)
     .set({
       status: "failed",
       finishedAt: new Date(),
       error: error instanceof Error ? error.message : String(error),
     })
-    .where(eq(agentRuns.id, rowId));
+    .where(eq(agentRuns.id, rowId))
+    .returning();
+  ctx.emit({ type: "step", step: toStepView(row) });
 }
 
 // Wraps a node's body with the start/succeed/fail bookkeeping above, so each
-// node only has to implement its actual extraction/analysis logic.
+// node only has to implement its actual extraction/analysis logic. Every
+// transition is both saved to agent_runs and emitted to the live stream.
 export async function trackStep<T>(
-  documentId: string,
-  runId: string,
+  ctx: StepContext,
   step: StepName,
   fn: () => Promise<{ result: T; usage: Usage }>,
 ): Promise<T> {
-  const rowId = await startStep(documentId, runId, step);
+  const rowId = await startStep(ctx, step);
   try {
     const { result, usage } = await fn();
-    await succeedStep(rowId, usage);
+    await succeedStep(ctx, rowId, usage);
     return result;
   } catch (error) {
-    await failStep(rowId, error);
+    await failStep(ctx, rowId, error);
     throw error;
   }
 }

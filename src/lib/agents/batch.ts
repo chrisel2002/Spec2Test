@@ -5,3 +5,6 @@ export function chunkArray<T>(items: T[], size: number): T[][] {
   }
   return batches;
 }
+
+// How far a batched node has got, for "Generating tests 5/12" progress.
+export type BatchProgress = { done: number; total: number };
