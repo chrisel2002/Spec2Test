@@ -46,7 +46,7 @@ export function DocumentList({
 }) {
   return (
     <section>
-      <h2 className="mb-3 text-sm font-medium text-muted-foreground">
+      <h2 className="mb-3 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
         Documents
       </h2>
       {error && <p className="mb-2 text-sm text-destructive">{error}</p>}

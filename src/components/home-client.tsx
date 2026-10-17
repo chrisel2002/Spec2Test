@@ -14,6 +14,9 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs";
 import { useRun } from "@/hooks/use-run";
+import { calculateCoverage } from "@/lib/review/coverage";
+import { derivePipelineSteps } from "@/lib/runs/pipeline-steps";
+import { totalCostUsd } from "@/lib/runs/selectors";
 import type { RunDetail, RunSummary } from "@/lib/runs/types";
 
 function emptyDetail(run: RunSummary): RunDetail {
@@ -46,6 +49,14 @@ export function HomeClient({
   const [startError, setStartError] = useState<string | null>(null);
 
   const running = run.detail?.run.status === "running";
+  const selectedDocument =
+    documents.find((doc) => doc.id === selectedDocumentId) ?? null;
+  const steps = derivePipelineSteps(selectedDocument, run.detail, run.progress);
+  const coverage = calculateCoverage(
+    run.detail?.requirements ?? [],
+    run.detail?.testCases ?? [],
+  );
+  const costUsd = totalCostUsd(run.detail?.steps ?? []);
 
   // Event-driven, not an effect: called directly from the upload/select
   // handlers below, each a response to a user action rather than a
@@ -150,6 +161,9 @@ export function HomeClient({
           onSelect={handleSelectDocument}
           resumingId={resumingId}
           onResume={handleResume}
+          steps={steps}
+          coverage={coverage}
+          costUsd={costUsd}
         />
         <main className="flex-1 overflow-auto p-6">
           <Tabs defaultValue="requirements">
