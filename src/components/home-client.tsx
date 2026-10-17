@@ -1,15 +1,29 @@
 "use client";
 
+import {
+  Clock,
+  FileText,
+  FileUp,
+  Loader2,
+  Play,
+  SearchX,
+  Sparkles,
+  Table2,
+  XCircle,
+} from "lucide-react";
 import { useState } from "react";
 
 import { AppHeader } from "@/components/app-header";
 import { ChatWithSpec } from "@/components/chat-with-spec";
 import type { DocumentSummary } from "@/components/document-list";
+import { EmptyState } from "@/components/empty-state";
 import { RequirementsReview } from "@/components/review/requirements-review";
+import { RunBanner } from "@/components/run-banner";
 import { RunPicker } from "@/components/run-picker";
 import { RunToolbar } from "@/components/run-toolbar";
 import { Sidebar } from "@/components/sidebar";
 import { TraceabilityMatrix } from "@/components/traceability-matrix";
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Tabs,
   TabsContent,
@@ -22,6 +36,35 @@ import { calculateCoverage } from "@/lib/review/coverage";
 import { derivePipelineSteps } from "@/lib/runs/pipeline-steps";
 import { totalCostUsd } from "@/lib/runs/selectors";
 import type { RunDetail, RunSummary } from "@/lib/runs/types";
+
+function DocumentNotReady({ document }: { document: DocumentSummary }) {
+  switch (document.status) {
+    case "embedding":
+      return (
+        <EmptyState
+          icon={Loader2}
+          title="Embedding the document…"
+          description={`${document.embeddedCount} of ${document.chunkCount} chunks embedded. The agent can run once this finishes.`}
+        />
+      );
+    case "waiting":
+      return (
+        <EmptyState
+          icon={Clock}
+          title="Embedding is paused"
+          description={`${document.statusMessage ?? "The embedding quota ran out."} Use "Resume embedding" in the sidebar once it resets.`}
+        />
+      );
+    default:
+      return (
+        <EmptyState
+          icon={XCircle}
+          title="Embedding failed"
+          description={`${document.statusMessage ?? "Something went wrong."} Use "Resume embedding" in the sidebar to try again.`}
+        />
+      );
+  }
+}
 
 function emptyDetail(run: RunSummary): RunDetail {
   return { run, steps: [], requirements: [], testCases: [], reviewEvents: [] };
@@ -239,9 +282,9 @@ export function HomeClient({
           costUsd={costUsd}
         />
         <main className="flex-1 overflow-auto p-6">
-          <Tabs defaultValue="requirements" className="mx-auto max-w-5xl">
-            {selectedDocument && (
-              <div className="mb-4 space-y-2">
+          {selectedDocument ? (
+            <Tabs defaultValue="requirements" className="mx-auto max-w-5xl">
+              <div className="mb-4 space-y-3">
                 <RunToolbar
                   run={run.detail?.run ?? null}
                   canStart={selectedDocument.status === "ready" && !running}
@@ -249,7 +292,6 @@ export function HomeClient({
                   onStart={handleStartRun}
                   continuing={continuing}
                   onBuildMatrix={() => continueRun("resume")}
-                  onRetry={() => continueRun("retry")}
                 >
                   <h1 className="truncate text-lg font-semibold">
                     {selectedDocument.filename}
@@ -261,48 +303,106 @@ export function HomeClient({
                     onSelect={handleSelectRun}
                   />
                 </RunToolbar>
-                {startError && <p className="text-sm text-destructive">{startError}</p>}
+                {startError && (
+                  <p role="alert" className="text-sm text-destructive">
+                    {startError}
+                  </p>
+                )}
+                {run.detail && (
+                  <RunBanner
+                    detail={run.detail}
+                    steps={steps}
+                    connection={run.connection}
+                    continuing={continuing}
+                    onRetry={() => continueRun("retry")}
+                  />
+                )}
               </div>
-            )}
-            <TabsList>
-              <TabsTrigger value="requirements">Requirements</TabsTrigger>
-              <TabsTrigger value="traceability">
-                Traceability matrix
-              </TabsTrigger>
-              <TabsTrigger value="chat">Chat with spec</TabsTrigger>
-            </TabsList>
-            <TabsContent value="requirements" className="mt-4">
-              {run.detail ? (
-                <RequirementsReview
-                  detail={run.detail}
-                  extracting={steps[1].state === "running" || (running && run.detail.steps.length === 0)}
-                  actor={reviewer}
-                  voiceEnabled={voiceEnabled}
-                  apply={run.apply}
-                  load={run.load}
-                />
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  {selectedDocument
-                    ? "No runs yet. Click “Run agent” to extract requirements and generate tests."
-                    : "Upload a spec to get started."}
-                </p>
-              )}
-            </TabsContent>
-            <TabsContent value="traceability" className="mt-4">
-              {run.detail && !running && run.detail.requirements.length > 0 ? (
-                <TraceabilityMatrix detail={run.detail} />
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  The traceability matrix appears once the agent has
-                  generated tests.
-                </p>
-              )}
-            </TabsContent>
-            <TabsContent value="chat" className="mt-4 h-[calc(100%-3rem)]">
-              <ChatWithSpec voiceEnabled={voiceEnabled} />
-            </TabsContent>
-          </Tabs>
+              <TabsList>
+                <TabsTrigger value="requirements">Requirements</TabsTrigger>
+                <TabsTrigger value="traceability">
+                  Traceability matrix
+                </TabsTrigger>
+                <TabsTrigger value="chat">Chat with spec</TabsTrigger>
+              </TabsList>
+              <TabsContent value="requirements" className="mt-4">
+                {selectedDocument.status !== "ready" ? (
+                  <DocumentNotReady document={selectedDocument} />
+                ) : !run.detail ? (
+                  <EmptyState
+                    icon={Sparkles}
+                    title="Ready to analyze"
+                    description="Run the agent to extract atomic requirements, flag ambiguous ones, and draft Given/When/Then tests for you to review."
+                    action={
+                      <Button onClick={handleStartRun} disabled={starting}>
+                        <Play aria-hidden />
+                        Run agent
+                      </Button>
+                    }
+                  />
+                ) : run.detail.requirements.length === 0 && !running ? (
+                  <EmptyState
+                    icon={SearchX}
+                    title={
+                      run.detail.run.status === "completed"
+                        ? "No requirements found"
+                        : "No requirements yet"
+                    }
+                    description={
+                      run.detail.run.status === "completed"
+                        ? "The agent found no requirement statements (shall, must, should) in this document, so there is nothing to review."
+                        : "The run stopped before any requirements were extracted."
+                    }
+                  />
+                ) : (
+                  <RequirementsReview
+                    detail={run.detail}
+                    extracting={steps[1].state === "running" || (running && run.detail.steps.length === 0)}
+                    actor={reviewer}
+                    voiceEnabled={voiceEnabled}
+                    apply={run.apply}
+                    load={run.load}
+                  />
+                )}
+              </TabsContent>
+              <TabsContent value="traceability" className="mt-4">
+                {run.detail && !running && run.detail.requirements.length > 0 ? (
+                  <TraceabilityMatrix detail={run.detail} />
+                ) : (
+                  <EmptyState
+                    icon={running ? Loader2 : Table2}
+                    title={running ? "The matrix comes after review" : "No matrix yet"}
+                    description={
+                      running
+                        ? "The agent is still working. Once it has generated tests, you can review them and the matrix will appear here."
+                        : "Run the agent on this document to map its requirements to test cases."
+                    }
+                  />
+                )}
+              </TabsContent>
+              <TabsContent value="chat" className="mt-4 h-[calc(100%-3rem)]">
+                <ChatWithSpec voiceEnabled={voiceEnabled} />
+              </TabsContent>
+            </Tabs>
+          ) : (
+            <div className="mx-auto mt-10 max-w-2xl">
+              <EmptyState
+                icon={FileText}
+                title={uploading ? "Processing your spec…" : "Upload a requirements spec"}
+                description="Markdown or PDF, up to 10 MB. Only use synthetic or public documents; sample-specs/ has two to try."
+                action={
+                  <label
+                    htmlFor="spec-upload"
+                    className={buttonVariants({ size: "lg" })}
+                    aria-disabled={uploading}
+                  >
+                    <FileUp aria-hidden />
+                    Choose a file
+                  </label>
+                }
+              />
+            </div>
+          )}
         </main>
       </div>
     </div>

@@ -1,4 +1,4 @@
-import { APICallError } from "ai";
+import { APICallError, RetryError } from "ai";
 import { z } from "zod";
 
 // Shape of Google's 429 body. The wait time lives in a RetryInfo detail
@@ -125,4 +125,15 @@ export async function withQuotaRetry<T>(
       await sleep(delayMs);
     }
   }
+}
+
+// True for any "slow down" from the provider, however it reaches us: a raw
+// 429, the AI SDK's RetryError after its own retries ran out on 429s, or
+// our QuotaExceededError. Used to tell the user "wait and retry" instead
+// of showing a raw provider error.
+export function isRateLimitError(error: unknown): boolean {
+  if (error instanceof QuotaExceededError) return true;
+  if (APICallError.isInstance(error)) return error.statusCode === 429;
+  if (RetryError.isInstance(error)) return isRateLimitError(error.lastError);
+  return false;
 }

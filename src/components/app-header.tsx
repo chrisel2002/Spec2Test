@@ -39,6 +39,7 @@ export function AppHeader({
       </div>
       <input
         ref={inputRef}
+        id="spec-upload"
         type="file"
         accept=".md,.pdf"
         className="hidden"

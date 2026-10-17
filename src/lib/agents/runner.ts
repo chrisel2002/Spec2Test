@@ -3,6 +3,7 @@ import "server-only";
 import { Command } from "@langchain/langgraph";
 import { and, eq, inArray } from "drizzle-orm";
 
+import { isRateLimitError } from "@/lib/ai/quota-retry";
 import { db } from "@/lib/db/client";
 import { getRunDetail } from "@/lib/db/queries";
 import { agentRuns, runs } from "@/lib/db/schema";
@@ -109,6 +110,7 @@ export async function executeRun(runId: string, input: RunInput) {
       status: "failed",
       finishedAt: new Date(),
       error: error instanceof Error ? error.message : String(error),
+      rateLimited: isRateLimitError(error),
     });
   } finally {
     runEventBus.markInactive(runId);

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { isRateLimitError } from "@/lib/ai/quota-retry";
 import { ReviewError, resolveRequirement } from "@/lib/review/service";
 import { ResolveRequirementSchema } from "@/lib/review/transitions";
 
@@ -33,6 +34,12 @@ export async function POST(
   } catch (error) {
     if (error instanceof ReviewError) {
       return NextResponse.json({ error: error.message }, { status: error.status });
+    }
+    if (isRateLimitError(error)) {
+      return NextResponse.json(
+        { error: "The model's rate limit was hit. Wait a minute, then try again." },
+        { status: 429 },
+      );
     }
     console.error("Resolving requirement failed", error);
     return NextResponse.json(
