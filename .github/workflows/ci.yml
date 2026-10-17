@@ -38,9 +38,10 @@ jobs:
       - name: Unit tests
         run: pnpm test
 
-  # End-to-end tests against a real Postgres (with pgvector) and a real
-  # Next.js server, but mocked embeddings and a mocked model (see
-  # playwright.config.ts), so no API keys or secrets are needed.
+  # Tests that need a real Postgres (with pgvector): the MCP server tests
+  # and the Playwright e2e tests. Both mock embeddings and the model (see
+  # vitest.mcp.config.ts and playwright.config.ts), so no API keys or
+  # secrets are needed.
   e2e:
     runs-on: ubuntu-latest
     services:
@@ -59,6 +60,7 @@ jobs:
           --health-retries 10
     env:
       E2E_DATABASE_URL: postgresql://spec2test:spec2test@localhost:5432/spec2test_e2e
+      MCP_TEST_DATABASE_URL: postgresql://spec2test:spec2test@localhost:5432/spec2test_mcp
       NEXT_TELEMETRY_DISABLED: 1
     steps:
       - name: Checkout
@@ -75,6 +77,9 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: MCP server tests
+        run: pnpm test:mcp
 
       - name: Install Playwright browser
         run: pnpm exec playwright install --with-deps chromium
