@@ -1,0 +1,10 @@
+# Store every text file with LF line endings and check it out with LF on
+# every OS (Windows included), regardless of each machine's core.autocrlf.
+# Without this, Windows checkouts got CRLF, so file contents (and things
+# computed from them, like chunk offsets in tests) differed by platform.
+* text=auto eol=lf
+
+# Never touch line endings in binary files.
+*.pdf binary
+*.png binary
+*.ico binary
