@@ -1,6 +1,7 @@
 import { generateObject } from "ai";
 import type { z } from "zod";
 
+import { mockStructuredObject } from "./mock-model";
 import { getChatModel } from "./providers";
 
 // Free-tier Gemini rate limits mean occasional 429/503s are expected, not
@@ -19,6 +20,16 @@ export async function generateStructured<T>(options: {
   system: string;
   prompt: string;
 }): Promise<StructuredResult<T>> {
+  // The mock's output goes through the same schema as a real response, so
+  // a mock that drifts from the schema fails just like a bad model would.
+  if (process.env.MODEL_PROVIDER === "mock") {
+    const { object, usage } = await mockStructuredObject(
+      options.system,
+      options.prompt,
+    );
+    return { object: options.schema.parse(object), usage };
+  }
+
   const result = await generateObject({
     model: getChatModel(),
     schema: options.schema,
