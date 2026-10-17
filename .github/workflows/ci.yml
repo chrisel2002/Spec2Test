@@ -37,3 +37,55 @@ jobs:
 
       - name: Unit tests
         run: pnpm test
+
+  # End-to-end tests against a real Postgres (with pgvector) and a real
+  # Next.js server, but mocked embeddings and a mocked model (see
+  # playwright.config.ts), so no API keys or secrets are needed.
+  e2e:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: spec2test
+          POSTGRES_PASSWORD: spec2test
+          POSTGRES_DB: spec2test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U spec2test -d spec2test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      E2E_DATABASE_URL: postgresql://spec2test:spec2test@localhost:5432/spec2test_e2e
+      NEXT_TELEMETRY_DISABLED: 1
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browser
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: E2E tests
+        run: pnpm test:e2e
+
+      - name: Upload Playwright traces
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-test-results
+          path: test-results/
+          retention-days: 7
