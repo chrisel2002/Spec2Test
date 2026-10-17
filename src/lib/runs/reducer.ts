@@ -1,4 +1,4 @@
-import type { RunDetail, RunEvent, StepName } from "./types";
+import type { ReviewEventView, RunDetail, RunEvent, StepName } from "./types";
 
 export type StepProgress = { done: number; total: number };
 
@@ -10,7 +10,11 @@ export type RunState = {
   progress: Partial<Record<StepName, StepProgress>>;
 };
 
-export type RunAction = RunEvent | { type: "reset"; detail: RunDetail | null };
+export type RunAction =
+  | RunEvent
+  | { type: "reset"; detail: RunDetail | null }
+  // Client-only: a review action's history entry, from the API response.
+  | { type: "reviewEvents"; events: ReviewEventView[] };
 
 // Replaces items with a matching id in place, and appends new ones, so
 // order stays stable as rows stream in and get updated.
@@ -72,6 +76,14 @@ export function runReducer(state: RunState, action: RunAction): RunState {
         detail: {
           ...detail,
           testCases: upsertById(detail.testCases, action.testCases),
+        },
+      };
+    case "reviewEvents":
+      return {
+        ...state,
+        detail: {
+          ...detail,
+          reviewEvents: upsertById(detail.reviewEvents, action.events),
         },
       };
   }

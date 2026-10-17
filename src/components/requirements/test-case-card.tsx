@@ -27,13 +27,15 @@ export function GivenWhenThen({ testCase }: { testCase: TestCaseView }) {
 export function TestCaseCard({
   testCase,
   actions,
-  children,
+  body,
+  footer,
 }: {
   testCase: TestCaseView;
-  // Review controls, rendered in the header; the body can be swapped for
-  // an edit form via children.
+  // Review controls, rendered in the header.
   actions?: React.ReactNode;
-  children?: React.ReactNode;
+  // Replaces the Given/When/Then block, e.g. with an edit form.
+  body?: React.ReactNode;
+  footer?: React.ReactNode;
 }) {
   return (
     <li
@@ -60,7 +62,8 @@ export function TestCaseCard({
         )}
         {actions && <div className="ml-auto flex items-center gap-1">{actions}</div>}
       </div>
-      {children ?? <GivenWhenThen testCase={testCase} />}
+      {body ?? <GivenWhenThen testCase={testCase} />}
+      {footer}
     </li>
   );
 }

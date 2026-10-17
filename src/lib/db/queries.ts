@@ -4,12 +4,21 @@ import { db } from "./client";
 import type { RunDetail, RunSummary } from "@/lib/runs/types";
 import {
   toRequirementView,
+  toReviewEventView,
   toRunSummary,
   toStepView,
   toTestCaseView,
 } from "@/lib/runs/views";
 
-import { agentRuns, chunks, documents, requirements, runs, testCases } from "./schema";
+import {
+  agentRuns,
+  chunks,
+  documents,
+  requirements,
+  reviewEvents,
+  runs,
+  testCases,
+} from "./schema";
 
 export async function listDocumentSummaries() {
   return db
@@ -94,7 +103,7 @@ export async function getRunDetail(runId: string): Promise<RunDetail | null> {
   const [run] = await db.select().from(runs).where(eq(runs.id, runId));
   if (!run) return null;
 
-  const [stepRows, requirementRows] = await Promise.all([
+  const [stepRows, requirementRows, eventRows] = await Promise.all([
     db
       .select()
       .from(agentRuns)
@@ -105,6 +114,11 @@ export async function getRunDetail(runId: string): Promise<RunDetail | null> {
       .from(requirements)
       .where(eq(requirements.runId, runId))
       .orderBy(asc(requirements.code)),
+    db
+      .select()
+      .from(reviewEvents)
+      .where(eq(reviewEvents.runId, runId))
+      .orderBy(asc(reviewEvents.createdAt)),
   ]);
 
   const testRows = requirementRows.length
@@ -117,7 +131,9 @@ export async function getRunDetail(runId: string): Promise<RunDetail | null> {
             requirementRows.map((r) => r.id),
           ),
         )
-        .orderBy(asc(testCases.createdAt), asc(testCases.id))
+        // A batch shares one createdAt; type (enum order: positive,
+        // negative, boundary) then title keeps the order stable on reload.
+        .orderBy(asc(testCases.createdAt), asc(testCases.type), asc(testCases.title))
     : [];
 
   return {
@@ -125,5 +141,6 @@ export async function getRunDetail(runId: string): Promise<RunDetail | null> {
     steps: stepRows.map(toStepView),
     requirements: requirementRows.map(toRequirementView),
     testCases: testRows.map(toTestCaseView),
+    reviewEvents: eventRows.map(toReviewEventView),
   };
 }

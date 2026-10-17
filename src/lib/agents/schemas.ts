@@ -83,12 +83,14 @@ export const AmbiguityBatchResultSchema = z.object({
 // Node 3 — generate tests
 // ---------------------------------------------------------------------------
 
+// Also the schema a reviewer's edit is validated with (see
+// lib/review/transitions.ts), hence the user-facing messages.
 export const GeneratedTestCaseSchema = z.object({
-  title: z.string(),
+  title: z.string().min(1, "Give the test a title").max(200),
   type: TestCaseTypeSchema,
-  given: z.string(),
-  when: z.string(),
-  then: z.string(),
+  given: z.string().min(1, "Describe the precondition"),
+  when: z.string().min(1, "Describe the action"),
+  then: z.string().min(1, "Describe the expected outcome"),
 });
 export type GeneratedTestCase = z.infer<typeof GeneratedTestCaseSchema>;
 

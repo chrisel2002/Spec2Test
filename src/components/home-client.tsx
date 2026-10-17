@@ -5,7 +5,7 @@ import { useState } from "react";
 import { AppHeader } from "@/components/app-header";
 import { ChatWithSpec } from "@/components/chat-with-spec";
 import type { DocumentSummary } from "@/components/document-list";
-import { RequirementsPanel } from "@/components/requirements-panel";
+import { RequirementsReview } from "@/components/review/requirements-review";
 import { RunToolbar } from "@/components/run-toolbar";
 import { Sidebar } from "@/components/sidebar";
 import {
@@ -14,6 +14,7 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs";
+import { useReviewerName } from "@/hooks/use-reviewer-name";
 import { useRun } from "@/hooks/use-run";
 import { calculateCoverage } from "@/lib/review/coverage";
 import { derivePipelineSteps } from "@/lib/runs/pipeline-steps";
@@ -21,7 +22,7 @@ import { totalCostUsd } from "@/lib/runs/selectors";
 import type { RunDetail, RunSummary } from "@/lib/runs/types";
 
 function emptyDetail(run: RunSummary): RunDetail {
-  return { run, steps: [], requirements: [], testCases: [] };
+  return { run, steps: [], requirements: [], testCases: [], reviewEvents: [] };
 }
 
 export function HomeClient({
@@ -47,6 +48,7 @@ export function HomeClient({
   );
   const [runs, setRuns] = useState(initialRuns);
   const run = useRun(initialRunDetail);
+  const [reviewer, setReviewer] = useReviewerName();
   const [starting, setStarting] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
 
@@ -158,7 +160,12 @@ export function HomeClient({
 
   return (
     <div className="flex h-screen flex-col">
-      <AppHeader onUpload={handleUpload} uploading={uploading} />
+      <AppHeader
+        onUpload={handleUpload}
+        uploading={uploading}
+        reviewer={reviewer}
+        onReviewerChange={setReviewer}
+      />
       <div className="flex flex-1 overflow-hidden">
         <Sidebar
           documents={documents}
@@ -198,12 +205,13 @@ export function HomeClient({
             </TabsList>
             <TabsContent value="requirements" className="mt-4">
               {run.detail ? (
-                <RequirementsPanel
-                  runId={run.detail.run.id}
-                  requirements={run.detail.requirements}
-                  testCases={run.detail.testCases}
+                <RequirementsReview
+                  detail={run.detail}
                   extracting={steps[1].state === "running" || (running && run.detail.steps.length === 0)}
+                  actor={reviewer}
                   voiceEnabled={voiceEnabled}
+                  apply={run.apply}
+                  load={run.load}
                 />
               ) : (
                 <p className="text-sm text-muted-foreground">

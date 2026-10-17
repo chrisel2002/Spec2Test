@@ -1,12 +1,14 @@
 import type {
   agentRuns,
   requirements,
+  reviewEvents,
   runs,
   testCases,
 } from "@/lib/db/schema";
 
 import {
   type RequirementView,
+  type ReviewEventView,
   type RunSummary,
   StepNameSchema,
   type StepView,
@@ -75,5 +77,21 @@ export function toTestCaseView(
     status: row.status,
     basedOnAssumption: row.basedOnAssumption,
     updatedAt: row.updatedAt.toISOString(),
+  };
+}
+
+export function toReviewEventView(
+  row: typeof reviewEvents.$inferSelect,
+): ReviewEventView {
+  return {
+    id: row.id,
+    requirementId: row.requirementId,
+    testCaseId: row.testCaseId,
+    actor: row.actor,
+    action: row.action,
+    fromStatus: row.fromStatus,
+    toStatus: row.toStatus,
+    changes: row.changes ?? null,
+    createdAt: row.createdAt.toISOString(),
   };
 }

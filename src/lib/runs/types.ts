@@ -87,6 +87,19 @@ export const TestCaseViewSchema = z.object({
 });
 export type TestCaseView = z.infer<typeof TestCaseViewSchema>;
 
+export const ReviewEventViewSchema = z.object({
+  id: z.string(),
+  requirementId: z.string(),
+  testCaseId: z.string().nullable(),
+  actor: z.string(),
+  action: z.enum(["approved", "rejected", "edited", "requirement_rewritten"]),
+  fromStatus: TestCaseStatusSchema.nullable(),
+  toStatus: TestCaseStatusSchema.nullable(),
+  changes: z.record(z.string(), z.object({ from: z.string(), to: z.string() })).nullable(),
+  createdAt: z.string(),
+});
+export type ReviewEventView = z.infer<typeof ReviewEventViewSchema>;
+
 // Everything the UI needs to render one run. Requirements and test cases
 // are kept flat (test cases point at their requirement) so stream events
 // can upsert either by id without walking a nested tree.
@@ -95,6 +108,8 @@ export const RunDetailSchema = z.object({
   steps: z.array(StepViewSchema),
   requirements: z.array(RequirementViewSchema),
   testCases: z.array(TestCaseViewSchema),
+  // Human review history, oldest first.
+  reviewEvents: z.array(ReviewEventViewSchema),
 });
 export type RunDetail = z.infer<typeof RunDetailSchema>;
 

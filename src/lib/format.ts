@@ -17,3 +17,22 @@ export function formatFileSize(bytes: number): string {
 
   return `${value.toFixed(precision)} ${UNITS[exponent]}`;
 }
+
+const RELATIVE_UNITS: [Intl.RelativeTimeFormatUnit, number][] = [
+  ["day", 86_400_000],
+  ["hour", 3_600_000],
+  ["minute", 60_000],
+];
+
+// "just now", "5 minutes ago", "yesterday". `now` is a parameter so tests
+// don't depend on the clock.
+export function formatRelativeTime(iso: string, now: number = Date.now()): string {
+  const elapsed = now - new Date(iso).getTime();
+  if (elapsed < 60_000) return "just now";
+
+  const format = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
+  for (const [unit, ms] of RELATIVE_UNITS) {
+    if (elapsed >= ms) return format.format(-Math.floor(elapsed / ms), unit);
+  }
+  return "just now";
+}
