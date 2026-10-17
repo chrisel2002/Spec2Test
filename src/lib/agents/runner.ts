@@ -1,7 +1,7 @@
 import "server-only";
 
 import { Command } from "@langchain/langgraph";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, not, sql } from "drizzle-orm";
 
 import { isRateLimitError } from "@/lib/ai/quota-retry";
 import { db } from "@/lib/db/client";
@@ -37,9 +37,44 @@ export async function updateRun(
   return run;
 }
 
+// How often the executing process touches runs.heartbeat_at, and how long
+// without a heartbeat before a "running" run counts as cut off. The gap
+// leaves room for a slow DB write or a long event-loop pause.
+const HEARTBEAT_INTERVAL_MS = 5_000;
+export const HEARTBEAT_TIMEOUT_SECONDS = 30;
+
+// A "running" row whose heartbeat is missing or older than the timeout.
+const heartbeatStopped = sql`(${runs.heartbeatAt} is null or ${runs.heartbeatAt} < now() - make_interval(secs => ${HEARTBEAT_TIMEOUT_SECONDS}))`;
+
 export async function createRun(documentId: string): Promise<RunSummary> {
-  const [row] = await db.insert(runs).values({ documentId }).returning();
+  const [row] = await db
+    .insert(runs)
+    .values({ documentId, heartbeatAt: sql`now()` })
+    .returning();
   return toRunSummary(row);
+}
+
+// Whether some process (this one, or another web app instance, or the MCP
+// server) is still executing the run.
+export async function isRunAlive(runId: string): Promise<boolean> {
+  if (runEventBus.isActive(runId)) return true;
+  const [alive] = await db
+    .select({ id: runs.id })
+    .from(runs)
+    .where(and(eq(runs.id, runId), eq(runs.status, "running"), not(heartbeatStopped)));
+  return Boolean(alive);
+}
+
+function startHeartbeat(runId: string): () => void {
+  const beat = () =>
+    db
+      .update(runs)
+      .set({ heartbeatAt: sql`now()` })
+      .where(and(eq(runs.id, runId), eq(runs.status, "running")))
+      .catch((error) => console.error(`Heartbeat for run ${runId} failed`, error));
+  void beat();
+  const timer = setInterval(beat, HEARTBEAT_INTERVAL_MS);
+  return () => clearInterval(timer);
 }
 
 // How to (re)enter the graph for a run:
@@ -79,6 +114,7 @@ function graphInput(runId: string, input: RunInput): GraphInput {
 // coarse: they can't express "requirement 5 of 12 just finished".
 export async function executeRun(runId: string, input: RunInput) {
   runEventBus.markActive(runId);
+  const stopHeartbeat = startHeartbeat(runId);
   // thread_id ties this execution to the run's saved checkpoints.
   const config = { configurable: { thread_id: runId } };
   try {
@@ -113,6 +149,7 @@ export async function executeRun(runId: string, input: RunInput) {
       rateLimited: isRateLimitError(error),
     });
   } finally {
+    stopHeartbeat();
     runEventBus.markInactive(runId);
   }
 }
@@ -126,7 +163,13 @@ export async function claimRun(
 ): Promise<boolean> {
   const [row] = await db
     .update(runs)
-    .set({ status: "running", error: null, rateLimited: false, finishedAt: null })
+    .set({
+      status: "running",
+      error: null,
+      rateLimited: false,
+      finishedAt: null,
+      heartbeatAt: sql`now()`,
+    })
     .where(and(eq(runs.id, runId), inArray(runs.status, from)))
     .returning();
   if (!row) return false;
@@ -142,28 +185,32 @@ export async function hasCheckpointToContinue(runId: string): Promise<boolean> {
   return snapshot.next.length > 0;
 }
 
-// getRunDetail, plus one repair: a run the DB says is "running" but that
-// no code in this process is executing was cut off by a server restart.
-// Left alone it would show a spinner forever, so it's marked failed (along
-// with the step it was in), which gives the user a Retry button instead.
+// getRunDetail, plus one repair: a run the DB says is "running" but whose
+// heartbeat has stopped was cut off by a crash or restart, in whichever
+// process was executing it. Left alone it would show a spinner forever, so
+// it's marked failed (along with the step it was in), which gives the user
+// a Retry button instead.
+//
+// This used to check "is this process executing it?", which was wrong as
+// soon as a second process (the MCP server) could run the graph: the web
+// app would have failed every run the MCP server was still working on.
 export async function loadRunDetail(runId: string): Promise<RunDetail | null> {
   const detail = await getRunDetail(runId);
   if (detail?.run.status !== "running" || runEventBus.isActive(runId)) {
     return detail;
   }
 
-  // Conditional on still being "running": the run may have finished
-  // between the read above and the isActive check (it marks itself
-  // inactive right after saving its final status). An unconditional write
-  // here would overwrite that "completed" with "failed".
+  // Conditional on still being "running" with a stopped heartbeat, checked
+  // in the same UPDATE: the run may have finished, or beaten again, since
+  // the read above. An unconditional write could overwrite "completed".
   const [stale] = await db
     .update(runs)
     .set({
       status: "failed",
       finishedAt: new Date(),
-      error: "The server restarted while this run was in progress.",
+      error: "The run stopped unexpectedly: the process running it restarted or crashed.",
     })
-    .where(and(eq(runs.id, runId), eq(runs.status, "running")))
+    .where(and(eq(runs.id, runId), eq(runs.status, "running"), heartbeatStopped))
     .returning();
   if (stale) {
     await db

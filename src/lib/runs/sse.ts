@@ -6,6 +6,8 @@ import { runEventBus } from "./event-bus";
 import type { RunEvent } from "./types";
 
 const HEARTBEAT_MS = 15_000;
+// How often to re-read a run that another process is executing.
+const POLL_MS = 2_000;
 
 // Server-sent events for one run: a snapshot of the run from the DB, then
 // every live event until the run stops running (paused for review,
@@ -51,9 +53,11 @@ export function createRunEventStream(
       const heartbeat = setInterval(() => {
         if (!closed) controller.enqueue(encoder.encode(": keep-alive\n\n"));
       }, HEARTBEAT_MS);
+      let poll: ReturnType<typeof setInterval> | undefined;
       cleanup = () => {
         unsubscribe();
         clearInterval(heartbeat);
+        clearInterval(poll);
       };
       signal.addEventListener("abort", close);
 
@@ -70,6 +74,25 @@ export function createRunEventStream(
         return;
       }
       buffered.forEach(send);
+
+      // The event bus only carries events from runs executing in this
+      // process. A run the MCP server (or another web app instance) is
+      // executing publishes nowhere we can hear, so fall back to re-reading
+      // it from the DB and sending a fresh snapshot whenever it changes.
+      // Coarser than live events (no in-step progress), but correct.
+      if (!runEventBus.isActive(runId)) {
+        let last = JSON.stringify(detail);
+        poll = setInterval(async () => {
+          const latest = await getRun(runId).catch(() => null);
+          if (!latest || closed) return;
+          const json = JSON.stringify(latest);
+          if (json !== last) {
+            last = json;
+            send({ type: "snapshot", detail: latest });
+          }
+          if (latest.run.status !== "running") send({ type: "run", run: latest.run });
+        }, POLL_MS);
+      }
     },
     cancel() {
       cleanup();

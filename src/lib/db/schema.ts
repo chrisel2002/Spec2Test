@@ -135,6 +135,11 @@ export const runs = pgTable(
       .notNull()
       .defaultNow(),
     finishedAt: timestamp("finished_at", { withTimezone: true }),
+    // Touched every few seconds by whichever process is executing the run
+    // (the web app or the MCP server). A "running" run whose heartbeat has
+    // stopped was cut off by a crash or restart. Set with the DB's clock,
+    // so processes with drifting clocks still agree.
+    heartbeatAt: timestamp("heartbeat_at", { withTimezone: true }),
   },
   (table) => [index("runs_document_idx").on(table.documentId, table.createdAt)],
 );

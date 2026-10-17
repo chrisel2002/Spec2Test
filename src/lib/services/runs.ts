@@ -7,6 +7,7 @@ import {
   createRun,
   executeRun,
   hasCheckpointToContinue,
+  isRunAlive,
   loadRunDetail,
   type RunInput,
 } from "@/lib/agents/runner";
@@ -62,7 +63,7 @@ export async function startRun(documentId: string, schedule: Schedule): Promise<
     .select({ id: runs.id })
     .from(runs)
     .where(and(eq(runs.documentId, document.id), eq(runs.status, "running")));
-  if (inProgress && runEventBus.isActive(inProgress.id)) {
+  if (inProgress && (await isRunAlive(inProgress.id))) {
     throw new ServiceError("A run is already in progress for this document.", "conflict");
   }
 
