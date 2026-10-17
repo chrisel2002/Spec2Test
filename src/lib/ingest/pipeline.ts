@@ -69,6 +69,10 @@ export async function ingestDocument(options: {
   const parsed = await parseByMimeType(mimeType, data);
   const pieces = chunkDocument(parsed);
 
+  // ON CONFLICT DO NOTHING: two uploads of the same file at the same moment
+  // can both pass the existence check above. The loser of the insert race
+  // gets no row back and is treated as a re-upload, instead of failing on
+  // the unique content_hash constraint.
   const [document] = await db
     .insert(documents)
     .values({
@@ -78,7 +82,20 @@ export async function ingestDocument(options: {
       contentHash,
       status: "embedding",
     })
+    .onConflictDoNothing({ target: documents.contentHash })
     .returning({ id: documents.id });
+
+  if (!document) {
+    const [winner] = await db
+      .select({ id: documents.id })
+      .from(documents)
+      .where(eq(documents.contentHash, contentHash));
+    return {
+      documentId: winner.id,
+      alreadyExists: true,
+      ...(await embedPendingChunks(winner.id)),
+    };
+  }
 
   // Store every chunk up front with no embedding, then fill embeddings in.
   // If the quota runs out halfway, the remaining work is simply "chunks
