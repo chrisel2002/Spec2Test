@@ -35,6 +35,11 @@ function firstWords(text: string, count: number): string {
     : words.join(" ");
 }
 
+// "The system shall lock the account" -> "lock the account"
+function actionOf(sentence: string): string {
+  return sentence.replace(/^The (system|user) (shall|must|should) (be )?/i, "");
+}
+
 // "1. text\n\n2. text" -> ["text", "text"], after the instruction line.
 export function parseNumberedList(prompt: string): string[] {
   const body = prompt.slice(prompt.indexOf("\n\n") + 2);
@@ -72,16 +77,13 @@ function mockExtraction(prompt: string) {
       ?.replace(/^#+\s*/, "")
       .replace(/^(REQ-)?[\d.]+:?\s*/, "");
 
-    // One requirement per obligation sentence; a section with a single one
-    // keeps its heading as the title.
-    return sentences.map((sentence) => ({
-      title:
-        sentences.length === 1 && headingTitle
+    // One requirement per obligation sentence, titled after its section.
+    return sentences.map((sentence, i) => ({
+      title: headingTitle
+        ? i === 0
           ? headingTitle
-          : firstWords(
-              sentence.replace(/^The system (shall|must|should) /i, ""),
-              6,
-            ),
+          : `${headingTitle} (part ${i + 1})`
+        : firstWords(actionOf(sentence), 6),
       text: sentence,
       sourceChunkRefs: [label],
     }));
@@ -110,14 +112,14 @@ function mockTests(prompt: string) {
   const results = parseNumberedList(prompt).map((text) => ({
     testCases: [
       {
-        title: `Accepts: ${firstWords(text, 7)}`,
+        title: `Happy path: ${firstWords(actionOf(text), 6)}`,
         type: "positive" as const,
         given: "the system is running with a registered user and valid test data",
         when: "the user performs the action the requirement describes with valid input",
         then: text,
       },
       {
-        title: `Rejects invalid input: ${firstWords(text, 5)}`,
+        title: `Invalid input: ${firstWords(actionOf(text), 5)}`,
         type: "negative" as const,
         given: "the system is running with a registered user",
         when: "the same action is attempted with missing or invalid input",
