@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "spec2test": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "--conditions=react-server",
+        "--import",
+        "tsx",
+        "src/mcp/main.ts"
+      ],
+      "env": {}
+    }
+  }
+}

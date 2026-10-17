@@ -57,11 +57,78 @@ Turn software requirements into test cases with AI agents.
 pnpm test               run unit tests (no DB or API key needed)
 pnpm test:integration   run tests against a real DB + embedding API (needs .env.local)
 pnpm test:e2e           run Playwright tests (own spec2test_e2e database, mock model, no API keys)
+pnpm test:mcp           run the MCP server tests (own spec2test_mcp database, mock model, no API keys)
+pnpm mcp                start the MCP server on stdio (normally Claude Code starts it for you)
 pnpm eval               run the eval script
 pnpm db:generate        generate a new Drizzle migration after changing the schema
 pnpm tts:hello          smoke-test ElevenLabs: writes output/hello.mp3 (needs ELEVENLABS_API_KEY)
 pnpm lint               lint and type-check
 ```
+
+## Use Spec2Test from Claude Code (MCP)
+
+Spec2Test is also an [MCP](https://modelcontextprotocol.io) server, so AI
+agents like Claude Code can use it as a tool: ingest a spec, start a run,
+read the requirements and the traceability matrix, and export Playwright
+tests. It runs locally over stdio and uses the same database and
+`.env.local` as the web app.
+
+**Register it.** The repo includes a project-scoped `.mcp.json`, so
+running `claude` in the repo asks you once to approve the `spec2test`
+server. To register it yourself, run this from the repo root:
+
+```
+claude mcp add --scope project spec2test -- node --conditions=react-server --import tsx src/mcp/main.ts
+```
+
+To use it from any directory, register it for your user through pnpm
+(on Windows, put `cmd /c` before `pnpm`):
+
+```
+claude mcp add --scope user spec2test -- pnpm --silent --dir /path/to/Spec2Test mcp
+```
+
+Check it with `claude mcp list`, or `/mcp` inside a session. Postgres must
+be running (`docker compose up -d`), and the web app too (`pnpm dev`) for
+the review step.
+
+**Tools:** `list_documents`, `ingest_spec` (a file path or Markdown text),
+`start_run`, `get_run_status`, `get_requirements` (with ambiguity flags),
+`get_traceability_matrix` (with coverage and gaps), and
+`export_playwright_tests` (writes the files into a folder you name).
+
+There is deliberately no tool to approve tests or build the matrix. When a
+run pauses for review, `get_run_status` returns `waiting_for_review` with
+the link to the review screen, and the agent hands it to you:
+
+> **You:** Ingest sample-specs/login-and-account.md, start a run, and tell
+> me which requirements are ambiguous.
+>
+> **Claude:** *(calls `ingest_spec`, `start_run`, polls `get_run_status`,
+> then `get_requirements` with `ambiguousOnly`)* The run extracted 16
+> requirements and drafted 32 test cases, and is now waiting for review.
+> Three requirements are ambiguous:
+>
+> | Code | Requirement | Problem |
+> |---|---|---|
+> | REQ-05 | The login experience should feel fast and responsive. | "fast" has no measurable threshold |
+> | REQ-13 | Password reset emails should be delivered quickly. | "quickly" has no threshold |
+> | REQ-15 | The system should be secure against common attacks. | "secure" isn't testable as written |
+>
+> I can't approve the test cases: Spec2Test only counts tests a person has
+> signed off. Review them at http://localhost:3000/?run=37640c8b-… , click
+> **Build matrix**, and I'll fetch the traceability matrix.
+>
+> **You:** Done. Show me the coverage and export the Playwright tests to
+> ./e2e/generated.
+>
+> **Claude:** *(calls `get_traceability_matrix` and
+> `export_playwright_tests`)* Coverage is 23%: 3 of 13 testable
+> requirements have an approved test. 13 gaps: 3 unresolved ambiguities
+> and 10 requirements with only draft tests. I wrote 3 spec files to
+> ./e2e/generated.
+
+(Abridged from a real session against the mock model.)
 
 ## Architecture
 
