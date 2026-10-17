@@ -11,7 +11,7 @@ import {
   Table2,
   XCircle,
 } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import { AppHeader } from "@/components/app-header";
 import { ChatWithSpec } from "@/components/chat-with-spec";
@@ -97,6 +97,12 @@ export function HomeClient({
   const [starting, setStarting] = useState(false);
   const [continuing, setContinuing] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
+  // "Latest request wins" for switching what's on screen. Every switch
+  // takes a new number; a slow fetch that comes back after a newer switch
+  // (say, the user clicked "New run" while the document's last run was
+  // still loading) sees its number is stale and drops its result instead
+  // of overwriting the newer view.
+  const viewRequest = useRef(0);
 
   const running = run.detail?.run.status === "running";
   const selectedDocument =
@@ -126,8 +132,10 @@ export function HomeClient({
   }
 
   async function handleSelectRun(runId: string) {
+    const request = ++viewRequest.current;
     setStartError(null);
     const response = await fetch(`/api/runs/${runId}`);
+    if (request !== viewRequest.current) return;
     if (!response.ok) {
       setStartError("Couldn't load that run");
       return;
@@ -139,10 +147,12 @@ export function HomeClient({
   // handlers below, each a response to a user action rather than a
   // reactive sync-on-mount.
   async function loadLatestRunFor(documentId: string) {
+    const request = ++viewRequest.current;
     const runsResponse = await fetch(`/api/documents/${documentId}/runs`);
     const runList: RunSummary[] = runsResponse.ok
       ? await runsResponse.json()
       : [];
+    if (request !== viewRequest.current) return;
     setRuns(runList);
 
     const latest = runList[0];
@@ -151,7 +161,9 @@ export function HomeClient({
       return;
     }
     const detailResponse = await fetch(`/api/runs/${latest.id}`);
-    showRun(detailResponse.ok ? await detailResponse.json() : null);
+    const detail = detailResponse.ok ? await detailResponse.json() : null;
+    if (request !== viewRequest.current) return;
+    showRun(detail);
   }
 
   // The sidebar shows each document's status and message, so after any
@@ -210,6 +222,8 @@ export function HomeClient({
   // "running" is what makes useRun open the event stream.
   async function handleStartRun() {
     if (!selectedDocumentId) return;
+    // Supersedes any run that's still loading for this document.
+    ++viewRequest.current;
     setStarting(true);
     setStartError(null);
 
