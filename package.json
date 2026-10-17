@@ -13,7 +13,8 @@
     "test:e2e": "playwright test",
     "db:generate": "dotenv -e .env.local -- drizzle-kit generate",
     "db:migrate": "dotenv -e .env.local -- drizzle-kit migrate",
-    "tts:hello": "dotenv -e .env.local -- tsx scripts/tts-hello.ts"
+    "tts:hello": "dotenv -e .env.local -- tsx scripts/tts-hello.ts",
+    "mcp": "node --conditions=react-server --import tsx src/mcp/main.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.71",
@@ -25,6 +26,7 @@
     "@langchain/core": "^1.2.14",
     "@langchain/langgraph": "^1.4.19",
     "@langchain/langgraph-checkpoint-postgres": "1.1.0",
+    "@modelcontextprotocol/sdk": "1.32.1",
     "ai": "^7.0.127",
     "class-variance-authority": "^0.7.1",
     "cn": "^0.4.0",
