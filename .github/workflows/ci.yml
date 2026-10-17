@@ -40,7 +40,7 @@ jobs:
 
   # Tests that need a real Postgres (with pgvector): the MCP server tests
   # and the Playwright e2e tests. Both mock embeddings and the model (see
-  # vitest.mcp.config.ts and playwright.config.ts), so no API keys or
+  # vitest.mcp.config.mts and playwright.config.ts), so no API keys or
   # secrets are needed.
   e2e:
     runs-on: ubuntu-latest
