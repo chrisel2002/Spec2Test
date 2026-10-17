@@ -152,14 +152,25 @@ export async function loadRunDetail(runId: string): Promise<RunDetail | null> {
     return detail;
   }
 
-  await db
-    .update(agentRuns)
-    .set({ status: "failed", finishedAt: new Date(), error: "Interrupted" })
-    .where(and(eq(agentRuns.runId, runId), eq(agentRuns.status, "running")));
-  await updateRun(runId, {
-    status: "failed",
-    finishedAt: new Date(),
-    error: "The server restarted while this run was in progress.",
-  });
+  // Conditional on still being "running": the run may have finished
+  // between the read above and the isActive check (it marks itself
+  // inactive right after saving its final status). An unconditional write
+  // here would overwrite that "completed" with "failed".
+  const [stale] = await db
+    .update(runs)
+    .set({
+      status: "failed",
+      finishedAt: new Date(),
+      error: "The server restarted while this run was in progress.",
+    })
+    .where(and(eq(runs.id, runId), eq(runs.status, "running")))
+    .returning();
+  if (stale) {
+    await db
+      .update(agentRuns)
+      .set({ status: "failed", finishedAt: new Date(), error: "Interrupted" })
+      .where(and(eq(agentRuns.runId, runId), eq(agentRuns.status, "running")));
+    runEventBus.publish(runId, { type: "run", run: toRunSummary(stale) });
+  }
   return getRunDetail(runId);
 }
