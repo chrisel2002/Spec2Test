@@ -6,6 +6,7 @@ import { AppHeader } from "@/components/app-header";
 import { ChatWithSpec } from "@/components/chat-with-spec";
 import type { DocumentSummary } from "@/components/document-list";
 import { RequirementsReview } from "@/components/review/requirements-review";
+import { RunPicker } from "@/components/run-picker";
 import { RunToolbar } from "@/components/run-toolbar";
 import { Sidebar } from "@/components/sidebar";
 import { TraceabilityMatrix } from "@/components/traceability-matrix";
@@ -63,6 +64,33 @@ export function HomeClient({
     run.detail?.testCases ?? [],
   );
   const costUsd = totalCostUsd(run.detail?.steps ?? []);
+  // The list is fetched once per document; the open run's status changes
+  // live, so it's taken from the run itself.
+  const runHistory = runs.map((r) =>
+    r.id === run.detail?.run.id ? run.detail.run : r,
+  );
+
+  // Shows a run and records it in the URL (?run=<id>), so a refresh, a
+  // bookmark, or a shared link reopens this exact run. replaceState
+  // rather than a router navigation: the page already has the data, and
+  // a navigation would re-render the server component for nothing.
+  function showRun(detail: RunDetail | null) {
+    run.load(detail);
+    const url = new URL(window.location.href);
+    if (detail) url.searchParams.set("run", detail.run.id);
+    else url.searchParams.delete("run");
+    window.history.replaceState(null, "", url);
+  }
+
+  async function handleSelectRun(runId: string) {
+    setStartError(null);
+    const response = await fetch(`/api/runs/${runId}`);
+    if (!response.ok) {
+      setStartError("Couldn't load that run");
+      return;
+    }
+    showRun(await response.json());
+  }
 
   // Event-driven, not an effect: called directly from the upload/select
   // handlers below, each a response to a user action rather than a
@@ -76,11 +104,11 @@ export function HomeClient({
 
     const latest = runList[0];
     if (!latest) {
-      run.load(null);
+      showRun(null);
       return;
     }
     const detailResponse = await fetch(`/api/runs/${latest.id}`);
-    run.load(detailResponse.ok ? await detailResponse.json() : null);
+    showRun(detailResponse.ok ? await detailResponse.json() : null);
   }
 
   // The sidebar shows each document's status and message, so after any
@@ -154,7 +182,7 @@ export function HomeClient({
 
       const newRun: RunSummary = body;
       setRuns((previous) => [newRun, ...previous]);
-      run.load(emptyDetail(newRun));
+      showRun(emptyDetail(newRun));
     } finally {
       setStarting(false);
     }
@@ -226,6 +254,12 @@ export function HomeClient({
                   <h1 className="truncate text-lg font-semibold">
                     {selectedDocument.filename}
                   </h1>
+                  <RunPicker
+                    runs={runHistory}
+                    selectedId={run.detail?.run.id ?? null}
+                    disabled={starting || continuing}
+                    onSelect={handleSelectRun}
+                  />
                 </RunToolbar>
                 {startError && <p className="text-sm text-destructive">{startError}</p>}
               </div>
@@ -261,7 +295,7 @@ export function HomeClient({
               ) : (
                 <p className="text-sm text-muted-foreground">
                   The traceability matrix appears once the agent has
-                  generated tests ({runs.length} runs so far).
+                  generated tests.
                 </p>
               )}
             </TabsContent>

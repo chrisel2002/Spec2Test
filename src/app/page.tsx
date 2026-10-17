@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 import { HomeClient } from "@/components/home-client";
 import { loadRunDetail } from "@/lib/agents/runner";
 import {
@@ -9,16 +11,26 @@ import { isVoiceEnabled } from "@/lib/voice/config";
 
 export const dynamic = "force-dynamic";
 
-export default async function Home() {
+// ?run=<id> opens that run (and its document); without it, the newest
+// document's latest run. Rendering from the DB on the server is what makes
+// a run survive a page refresh — including one still running, whose
+// event stream the client then reopens.
+export default async function Home({ searchParams }: PageProps<"/">) {
+  const requestedRun = z.uuid().safeParse((await searchParams).run);
   const documents = await listDocumentSummaries();
-  const selectedDocumentId = documents[0]?.id ?? null;
-  const latestRunId = selectedDocumentId
-    ? await getLatestRunId(selectedDocumentId)
+
+  let runDetail = requestedRun.success
+    ? await loadRunDetail(requestedRun.data)
     : null;
-  const [runs, runDetail] = await Promise.all([
-    selectedDocumentId ? listRunsForDocument(selectedDocumentId) : [],
-    latestRunId ? loadRunDetail(latestRunId) : null,
-  ]);
+  const selectedDocumentId = runDetail?.run.documentId ?? documents[0]?.id ?? null;
+
+  if (!runDetail && selectedDocumentId) {
+    const latestRunId = await getLatestRunId(selectedDocumentId);
+    runDetail = latestRunId ? await loadRunDetail(latestRunId) : null;
+  }
+  const runs = selectedDocumentId
+    ? await listRunsForDocument(selectedDocumentId)
+    : [];
 
   return (
     <HomeClient
