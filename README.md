@@ -16,6 +16,8 @@ Turn software requirements into test cases with AI agents.
 - **Human-in-the-loop checkpoint**: the agent pauses after generating tests and only builds the matrix once a person clicks **Build matrix**
 - **Traceability matrix** with requirement-to-test links, review statuses, highlighted gaps, and filters
 - **Run history**: every run is kept and can be reopened; the open run is in the URL, so it survives a refresh, and failed runs retry from the step that failed
+- **Exports** for a signed-off run: the matrix as CSV (Excel-ready, optionally approved tests only), Playwright test skeletons as a zip (one `.spec.ts` per requirement, a `test.fixme` per approved test), and a Markdown report for a ticket or pull request
+- **MCP server** so AI agents like Claude Code can use Spec2Test as a tool: ingest specs, start runs, read requirements and the matrix, export tests. Human review stays in the web app
 - **Chat with spec**: questions answered only from retrieved excerpts, with citations
 - **Voice output (ElevenLabs)**: "Listen" buttons read chat answers and a short run summary aloud. Optional, and hidden when no API key is set
 
@@ -132,6 +134,42 @@ the link to the review screen, and the agent hands it to you:
 
 ## Architecture
 
+Spec2Test has two front doors, the web app and the MCP server, and both
+go through one service layer (`src/lib/services/`). Neither contains
+business logic of its own: the API routes translate HTTP, the MCP tools
+translate tool calls, and the services do the work.
+
+```mermaid
+flowchart LR
+    browser([Browser]) --> routes["Next.js API routes<br/>+ server-rendered page"]
+    claude([Claude Code / AI agent]) -- "MCP over stdio" --> mcp["MCP server<br/>src/mcp"]
+
+    subgraph services["Service layer · src/lib/services"]
+        direction TB
+        docs[documents<br/>list, ingest]
+        runsvc[runs<br/>start, status, resume, retry]
+        review[review<br/>approve, edit, reject, rewrite]
+        matrix[matrix<br/>requirements, coverage, gaps]
+        exports[exports<br/>CSV, Playwright, report]
+    end
+
+    routes --> services
+    mcp --> services
+    services --> agent[LangGraph.js agent]
+    services --> db[(PostgreSQL + pgvector)]
+    agent --> db
+
+    mcp -. "no tools: review stays in the web app" .-> review
+
+    classDef human fill:#fef3c7,stroke:#d97706,color:#78350f
+    class review human
+```
+
+The review service is only reachable from the web app: the MCP server
+has no tool for it (see the design decisions below).
+
+### The agent pipeline
+
 Uploading a spec runs it through parsing → chunking → embedding (see the
 chunking design decision below). Clicking **Run agent** on a document then
 runs a LangGraph.js pipeline over that document's chunks, with a
@@ -236,6 +274,56 @@ the pause survives server restarts and redeploys, and the same
 checkpoints let a failed run retry from the step that failed instead of
 from scratch. The alternative, LangGraph's in-memory `MemorySaver`, would
 lose every paused run on restart.
+
+### Why the MCP server can't bypass human review
+
+An agent connected over MCP can do everything except the judgement calls.
+It can ingest a spec, start a run, read the ambiguity flags, and read and
+export the matrix, but there is no tool to approve, edit, or reject a
+test, resolve an ambiguity, or build the matrix. When a run is paused,
+`get_run_status` returns `waiting_for_review`, the URL of the review
+screen, and a `nextAction` telling the agent to hand that link to the
+user and wait. The server's instructions and tool descriptions explain
+why, so the agent can explain it to the user instead of looking for a
+workaround.
+
+The reason is the same as for the checkpoint itself: coverage counts only
+tests a person has signed off, and that's what makes the number worth
+anything. An agent that approves the tests it just asked another agent
+to write has removed the human from the loop while keeping the
+appearance of review. Leaving the tools out is stronger than a
+permission check inside them: an agent can't call a tool that doesn't
+exist, however it's prompted. The service layer enforces the same rule
+underneath (exports refuse a run that isn't signed off), so it holds for
+any future interface too.
+
+The trade-off is that a fully automated pipeline can't run end to end.
+That's intended here. If it were ever needed, the place for it would be
+an explicit, audited "auto-approve" policy in the service layer, not a
+tool an agent can decide to call.
+
+### Why both interfaces share one service layer
+
+The web app and the MCP server do the same things: start a run, read its
+status, build the matrix, export it. If each had its own copy of that
+logic, they would drift. The MCP server would forget a check the web
+app has ("is this document ready?", "is a run already in progress?"), or
+compute coverage slightly differently, and the same run would look
+different depending on who asked.
+
+So every core action lives once in `src/lib/services/`. API routes and
+MCP tools are thin adapters: parse the input, call a service, translate
+the result (JSON and status codes for HTTP, tool results for MCP). A
+`ServiceError` with a kind (`invalid`, `not_found`, `conflict`,
+`rate_limited`) lets each adapter map failures its own way. Things that
+differ between the two, like how background work is scheduled (Next.js
+`after()` in the web app, a plain promise in the long-lived MCP process),
+are passed in rather than hard-coded.
+
+This also made a real bug visible. With two processes able to run the
+agent, "is this run alive?" could no longer mean "is this process running
+it?", so run liveness moved to a heartbeat in the database, where both
+processes see it.
 
 ### Why server-sent events instead of the AI SDK's stream
 
