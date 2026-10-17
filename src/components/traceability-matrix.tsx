@@ -3,6 +3,7 @@
 import { AlertTriangle, CheckCircle2, CircleSlash, Info } from "lucide-react";
 import { useState } from "react";
 
+import { ExportBar } from "@/components/export-bar";
 import { TestStatusBadge, TestTypeBadge } from "@/components/status-badges";
 import { calculateCoverage, type Gap } from "@/lib/review/coverage";
 import { buildMatrixRows, countGaps, type MatrixFilter } from "@/lib/review/matrix";
@@ -88,6 +89,8 @@ export function TraceabilityMatrix({ detail }: { detail: RunDetail }) {
           sign it off.
         </p>
       )}
+
+      <ExportBar detail={detail} />
 
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         <SummaryTile
