@@ -7,6 +7,7 @@ import {
   type GeneratedFile,
   zipFiles,
 } from "@/lib/export/playwright";
+import { buildReport } from "@/lib/export/report";
 import { type ExportInput, slugify } from "@/lib/export/shared";
 
 import { getDocument } from "./documents";
@@ -68,5 +69,14 @@ export async function exportPlaywrightZip(runId: string): Promise<ExportFile> {
     filename: `${folder}.zip`,
     contentType: "application/zip",
     body: zipFiles(folder, files),
+  };
+}
+
+export async function exportReport(runId: string): Promise<ExportFile> {
+  const input = await loadForExport(runId, "report");
+  return {
+    filename: `${baseName(input)}-report.md`,
+    contentType: "text/markdown; charset=utf-8",
+    body: buildReport(input, { runUrl: reviewUrl(input.detail.run.id) }),
   };
 }
