@@ -1,16 +1,22 @@
 import { NextResponse } from "next/server";
 
 import { errorResponse } from "@/lib/services/http";
-import { type ExportFile, exportCsv } from "@/lib/services/exports";
+import {
+  type ExportFile,
+  exportCsv,
+  exportPlaywrightZip,
+} from "@/lib/services/exports";
 
 export const dynamic = "force-dynamic";
 
 const EXPORTERS: Record<string, (runId: string, url: URL) => Promise<ExportFile>> = {
   csv: (runId, url) =>
     exportCsv(runId, { approvedOnly: url.searchParams.get("approvedOnly") === "true" }),
+  playwright: (runId) => exportPlaywrightZip(runId),
 };
 
-// Downloads an export of a run: /api/runs/:runId/export/csv[?approvedOnly=true].
+// Downloads an export of a run:
+// /api/runs/:runId/export/csv[?approvedOnly=true] or .../playwright (a zip).
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ runId: string; format: string }> },

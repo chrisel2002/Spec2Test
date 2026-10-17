@@ -2,11 +2,16 @@ import "server-only";
 
 import { exportAvailability, type ExportFormat } from "@/lib/export/availability";
 import { buildMatrixCsv } from "@/lib/export/csv";
+import {
+  buildPlaywrightFiles,
+  type GeneratedFile,
+  zipFiles,
+} from "@/lib/export/playwright";
 import { type ExportInput, slugify } from "@/lib/export/shared";
 
 import { getDocument } from "./documents";
 import { ServiceError } from "./errors";
-import { getRun } from "./runs";
+import { getRun, reviewUrl } from "./runs";
 
 export type ExportFile = {
   filename: string;
@@ -42,5 +47,26 @@ export async function exportCsv(
     filename: `${baseName(input)}-matrix${approvedOnly ? "-approved" : ""}.csv`,
     contentType: "text/csv; charset=utf-8",
     body: buildMatrixCsv(input, { approvedOnly }),
+  };
+}
+
+// The generated spec files themselves. The web app zips them; the MCP
+// server writes them into a folder the caller chooses.
+export async function getPlaywrightFiles(
+  runId: string,
+): Promise<{ folder: string; files: GeneratedFile[] }> {
+  const input = await loadForExport(runId, "playwright");
+  return {
+    folder: `${baseName(input)}-playwright`,
+    files: buildPlaywrightFiles(input, { sourceUrl: reviewUrl(input.detail.run.id) }),
+  };
+}
+
+export async function exportPlaywrightZip(runId: string): Promise<ExportFile> {
+  const { folder, files } = await getPlaywrightFiles(runId);
+  return {
+    filename: `${folder}.zip`,
+    contentType: "application/zip",
+    body: zipFiles(folder, files),
   };
 }
