@@ -8,6 +8,7 @@ import type { DocumentSummary } from "@/components/document-list";
 import { RequirementsReview } from "@/components/review/requirements-review";
 import { RunToolbar } from "@/components/run-toolbar";
 import { Sidebar } from "@/components/sidebar";
+import { TraceabilityMatrix } from "@/components/traceability-matrix";
 import {
   Tabs,
   TabsContent,
@@ -255,10 +256,14 @@ export function HomeClient({
               )}
             </TabsContent>
             <TabsContent value="traceability" className="mt-4">
-              <p className="text-sm text-muted-foreground">
-                The traceability matrix will map requirements to their
-                generated test cases ({runs.length} runs so far).
-              </p>
+              {run.detail && !running && run.detail.requirements.length > 0 ? (
+                <TraceabilityMatrix detail={run.detail} />
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  The traceability matrix appears once the agent has
+                  generated tests ({runs.length} runs so far).
+                </p>
+              )}
             </TabsContent>
             <TabsContent value="chat" className="mt-4 h-[calc(100%-3rem)]">
               <ChatWithSpec voiceEnabled={voiceEnabled} />
