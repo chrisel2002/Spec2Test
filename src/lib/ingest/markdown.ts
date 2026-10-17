@@ -1,9 +1,10 @@
+import { normalizeLineEndings } from "./text";
 import type { ParsedDocument } from "./types";
 
 const HEADING_PATTERN = /^(#{1,6})\s+(.*)$/;
 
 export function parseMarkdown(source: string): ParsedDocument {
-  const text = source.replace(/\r\n/g, "\n");
+  const text = normalizeLineEndings(source);
   const lines = text.split("\n");
   const headings: ParsedDocument["headings"] = [];
 

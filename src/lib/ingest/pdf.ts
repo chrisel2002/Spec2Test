@@ -1,5 +1,6 @@
 import { extractText, getDocumentProxy } from "unpdf";
 
+import { normalizeLineEndings } from "./text";
 import type { ParsedDocument } from "./types";
 
 const SECTION_HEADING = /^\d+\.\s+\S/;
@@ -37,7 +38,7 @@ export async function parsePdf(data: Uint8Array): Promise<ParsedDocument> {
     const pageNumber = pageIndex + 1;
     pages.push({ pageNumber, charIndex });
 
-    for (const line of pageText.split("\n")) {
+    for (const line of normalizeLineEndings(pageText).split("\n")) {
       if (line.trim() === "") continue;
 
       if (!sawTitle) {

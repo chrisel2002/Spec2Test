@@ -99,9 +99,11 @@ describe("Spec2Test MCP server", () => {
     expect(ingested.json()).toMatchObject({ status: "ready", alreadyExists: false });
 
     const { documents } = (await call("list_documents")).json();
-    expect(documents).toEqual([
+    // Other test files share this database, so check ours is listed rather
+    // than that it's the only one.
+    expect(documents).toContainEqual(
       expect.objectContaining({ id: documentId, filename: "newsletter.md", status: "ready" }),
-    ]);
+    );
   });
 
   it("rejects an ingest with both a path and Markdown, or an unsupported file", async () => {

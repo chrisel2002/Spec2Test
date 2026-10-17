@@ -13,7 +13,8 @@ describe("chunkDocument on the login Markdown spec", () => {
     join(process.cwd(), "sample-specs/login-and-account.md"),
     "utf8",
   );
-  const chunks = chunkDocument(parseMarkdown(source));
+  const parsed = parseMarkdown(source);
+  const chunks = chunkDocument(parsed);
 
   it("produces one chunk per heading, since every section is short", () => {
     // 1 title + 5 section headings + 13 requirement headings
@@ -33,9 +34,11 @@ describe("chunkDocument on the login Markdown spec", () => {
     );
   });
 
-  it("keeps charStart/charEnd aligned with the source text", () => {
+  // Offsets index into the parsed (line-ending-normalized) text, which is
+  // what gets stored as raw_text, not into the file's raw bytes.
+  it("keeps charStart/charEnd aligned with the stored text", () => {
     for (const chunk of chunks) {
-      expect(source.slice(chunk.charStart, chunk.charEnd)).toBe(
+      expect(parsed.text.slice(chunk.charStart, chunk.charEnd)).toBe(
         chunk.content,
       );
     }
