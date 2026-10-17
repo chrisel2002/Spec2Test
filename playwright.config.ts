@@ -17,7 +17,12 @@ export default defineConfig({
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: {
     command: `pnpm exec next dev -p ${E2E_PORT}`,
-    url: baseURL,
+    // Playwright starts this server *before* globalSetup runs, so its
+    // readiness check must not touch the database: on a fresh machine or
+    // in CI, the e2e database doesn't exist until globalSetup creates it.
+    // The page at / queries it, so wait for a static file instead. The
+    // first real query then comes from a test, after globalSetup.
+    url: `${baseURL}/favicon.ico`,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
     // Everything the app needs, so e2e runs with no .env.local and no API
