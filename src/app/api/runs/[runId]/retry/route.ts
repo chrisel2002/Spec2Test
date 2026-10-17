@@ -1,17 +1,21 @@
-import { continueRun } from "@/lib/runs/continue-run";
+import { after } from "next/server";
+
+import { respond } from "@/lib/services/http";
+import { retryRun } from "@/lib/services/runs";
 
 export const dynamic = "force-dynamic";
 
-// Retries a failed run from its last checkpoint: steps that already
-// succeeded aren't repeated (or paid for) again.
+// Retries a failed run from its last checkpoint.
 export async function POST(
   _request: Request,
   { params }: { params: Promise<{ runId: string }> },
 ) {
-  return continueRun(
-    (await params).runId,
-    "failed",
-    { kind: "retry" },
-    { notAllowed: "Only a failed run can be retried." },
+  const { runId } = await params;
+  return respond(
+    async () => {
+      await retryRun(runId, after);
+      return { ok: true };
+    },
+    { fallbackError: "Couldn't retry the run", status: 202 },
   );
 }

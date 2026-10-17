@@ -1,36 +1,37 @@
-import { z } from "zod";
-
 import { HomeClient } from "@/components/home-client";
-import { loadRunDetail } from "@/lib/agents/runner";
-import {
-  getLatestRunId,
-  listDocumentSummaries,
-  listRunsForDocument,
-} from "@/lib/db/queries";
+import { listDocuments } from "@/lib/services/documents";
+import { ServiceError } from "@/lib/services/errors";
+import { getLatestRun, getRun, listRuns } from "@/lib/services/runs";
 import { isVoiceEnabled } from "@/lib/voice/config";
 
 export const dynamic = "force-dynamic";
+
+// A stale or mistyped ?run= link falls back to the default view instead of
+// an error page.
+async function getRunIfExists(runId: string | undefined) {
+  if (!runId) return null;
+  try {
+    return await getRun(runId);
+  } catch (error) {
+    if (error instanceof ServiceError) return null;
+    throw error;
+  }
+}
 
 // ?run=<id> opens that run (and its document); without it, the newest
 // document's latest run. Rendering from the DB on the server is what makes
 // a run survive a page refresh — including one still running, whose
 // event stream the client then reopens.
 export default async function Home({ searchParams }: PageProps<"/">) {
-  const requestedRun = z.uuid().safeParse((await searchParams).run);
-  const documents = await listDocumentSummaries();
+  const { run } = await searchParams;
+  const documents = await listDocuments();
 
-  let runDetail = requestedRun.success
-    ? await loadRunDetail(requestedRun.data)
-    : null;
+  let runDetail = await getRunIfExists(typeof run === "string" ? run : undefined);
   const selectedDocumentId = runDetail?.run.documentId ?? documents[0]?.id ?? null;
-
   if (!runDetail && selectedDocumentId) {
-    const latestRunId = await getLatestRunId(selectedDocumentId);
-    runDetail = latestRunId ? await loadRunDetail(latestRunId) : null;
+    runDetail = await getLatestRun(selectedDocumentId);
   }
-  const runs = selectedDocumentId
-    ? await listRunsForDocument(selectedDocumentId)
-    : [];
+  const runs = selectedDocumentId ? await listRuns(selectedDocumentId) : [];
 
   return (
     <HomeClient

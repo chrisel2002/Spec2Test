@@ -1,6 +1,6 @@
 import "server-only";
 
-import { loadRunDetail } from "@/lib/agents/runner";
+import { getRun } from "@/lib/services/runs";
 
 import { runEventBus } from "./event-bus";
 import type { RunEvent } from "./types";
@@ -57,7 +57,7 @@ export function createRunEventStream(
       };
       signal.addEventListener("abort", close);
 
-      const detail = await loadRunDetail(runId);
+      const detail = await getRun(runId).catch(() => null);
       if (!detail) {
         close();
         return;

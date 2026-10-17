@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
-import { z } from "zod";
 
-import { isRateLimitError } from "@/lib/ai/quota-retry";
-import { ReviewError, resolveRequirement } from "@/lib/review/service";
 import { ResolveRequirementSchema } from "@/lib/review/transitions";
+import { respond } from "@/lib/services/http";
+import { resolveRequirement } from "@/lib/services/review";
 
 export const dynamic = "force-dynamic";
 
@@ -14,11 +13,6 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const parsedId = z.uuid().safeParse((await params).id);
-  if (!parsedId.success) {
-    return NextResponse.json({ error: "Invalid requirement id" }, { status: 400 });
-  }
-
   const body = ResolveRequirementSchema.safeParse(
     await request.json().catch(() => null),
   );
@@ -29,22 +23,8 @@ export async function POST(
     );
   }
 
-  try {
-    return NextResponse.json(await resolveRequirement(parsedId.data, body.data));
-  } catch (error) {
-    if (error instanceof ReviewError) {
-      return NextResponse.json({ error: error.message }, { status: error.status });
-    }
-    if (isRateLimitError(error)) {
-      return NextResponse.json(
-        { error: "The model's rate limit was hit. Wait a minute, then try again." },
-        { status: 429 },
-      );
-    }
-    console.error("Resolving requirement failed", error);
-    return NextResponse.json(
-      { error: "Couldn't regenerate the tests. Try again in a moment." },
-      { status: 502 },
-    );
-  }
+  const { id } = await params;
+  return respond(() => resolveRequirement(id, body.data), {
+    fallbackError: "Couldn't regenerate the tests. Try again in a moment.",
+  });
 }

@@ -1,15 +1,16 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { ActorSchema } from "@/lib/review/transitions";
-import { continueRun } from "@/lib/runs/continue-run";
+import { respond } from "@/lib/services/http";
+import { resumeRun } from "@/lib/services/runs";
 
 export const dynamic = "force-dynamic";
 
 const ResumeSchema = z.object({ actor: ActorSchema });
 
 // "Build matrix": resumes a run paused at the human-review checkpoint.
-// Body: { actor } — recorded in graph state as who signed off.
+// Body: { actor }, recorded in graph state as who signed off.
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ runId: string }> },
@@ -22,10 +23,12 @@ export async function POST(
     );
   }
 
-  return continueRun(
-    (await params).runId,
-    "waiting_for_review",
-    { kind: "resume", resume: { reviewedBy: body.data.actor } },
-    { notAllowed: "This run isn't waiting for review." },
+  const { runId } = await params;
+  return respond(
+    async () => {
+      await resumeRun(runId, body.data.actor, after);
+      return { ok: true };
+    },
+    { fallbackError: "Couldn't resume the run", status: 202 },
   );
 }

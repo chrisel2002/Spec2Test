@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { z } from "zod";
 
-import { ReviewError, reviewTestCase } from "@/lib/review/service";
 import { ReviewRequestSchema } from "@/lib/review/transitions";
+import { respond } from "@/lib/services/http";
+import { reviewTestCase } from "@/lib/services/review";
 
 export const dynamic = "force-dynamic";
 
@@ -11,11 +11,6 @@ export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const parsedId = z.uuid().safeParse((await params).id);
-  if (!parsedId.success) {
-    return NextResponse.json({ error: "Invalid test case id" }, { status: 400 });
-  }
-
   const body = ReviewRequestSchema.safeParse(await request.json().catch(() => null));
   if (!body.success) {
     return NextResponse.json(
@@ -24,13 +19,8 @@ export async function PATCH(
     );
   }
 
-  try {
-    return NextResponse.json(await reviewTestCase(parsedId.data, body.data));
-  } catch (error) {
-    if (error instanceof ReviewError) {
-      return NextResponse.json({ error: error.message }, { status: error.status });
-    }
-    console.error("Review failed", error);
-    return NextResponse.json({ error: "Couldn't save the review" }, { status: 500 });
-  }
+  const { id } = await params;
+  return respond(() => reviewTestCase(id, body.data), {
+    fallbackError: "Couldn't save the review",
+  });
 }

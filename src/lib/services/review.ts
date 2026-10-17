@@ -5,6 +5,7 @@ import type { z } from "zod";
 
 import { generateTestsForRequirements } from "@/lib/agents/nodes/generate-tests";
 import { trackStep } from "@/lib/agents/tracking";
+import { isRateLimitError } from "@/lib/ai/quota-retry";
 import { db } from "@/lib/db/client";
 import { getRunDetail } from "@/lib/db/queries";
 import {
@@ -26,18 +27,9 @@ import {
   type ResolveRequirementSchema,
   type ReviewRequestSchema,
   ReviewTransitionError,
-} from "./transitions";
+} from "@/lib/review/transitions";
 
-// Carries the HTTP status the route should answer with, so route handlers
-// stay a thin translation layer.
-export class ReviewError extends Error {
-  constructor(
-    message: string,
-    readonly status: 404 | 409,
-  ) {
-    super(message);
-  }
-}
+import { requireUuid, ServiceError } from "./errors";
 
 const REVIEW_CLOSED =
   "This run isn't open for review. Review happens while a run is waiting for review.";
@@ -57,24 +49,25 @@ export async function reviewTestCase(
   testCaseId: string,
   { actor, change }: z.infer<typeof ReviewRequestSchema>,
 ): Promise<{ testCase: TestCaseView; event: ReviewEventView }> {
+  const id = requireUuid(testCaseId, "test case");
   return db.transaction(async (tx) => {
     const [current] = await tx
       .select({ testCase: testCases, runId: requirements.runId, runStatus: runs.status })
       .from(testCases)
       .innerJoin(requirements, eq(testCases.requirementId, requirements.id))
       .innerJoin(runs, eq(requirements.runId, runs.id))
-      .where(eq(testCases.id, testCaseId))
+      .where(eq(testCases.id, id))
       .for("update", { of: testCases });
 
-    if (!current) throw new ReviewError("Test case not found", 404);
-    if (!isReviewOpen(current.runStatus)) throw new ReviewError(REVIEW_CLOSED, 409);
+    if (!current) throw new ServiceError("Test case not found", "not_found");
+    if (!isReviewOpen(current.runStatus)) throw new ServiceError(REVIEW_CLOSED, "conflict");
 
     let status;
     try {
       status = nextStatus(current.testCase.status, change.action);
     } catch (error) {
       if (error instanceof ReviewTransitionError) {
-        throw new ReviewError(error.message, 409);
+        throw new ServiceError(error.message, "conflict");
       }
       throw error;
     }
@@ -86,7 +79,7 @@ export async function reviewTestCase(
         updatedAt: new Date(),
         ...(change.action === "edit" ? change.testCase : {}),
       })
-      .where(eq(testCases.id, testCaseId))
+      .where(eq(testCases.id, id))
       .returning();
 
     const [event] = await tx
@@ -94,7 +87,7 @@ export async function reviewTestCase(
       .values({
         runId: current.runId,
         requirementId: current.testCase.requirementId,
-        testCaseId,
+        testCaseId: id,
         actor,
         action: ACTION_FOR[change.action],
         fromStatus: current.testCase.status,
@@ -110,6 +103,51 @@ export async function reviewTestCase(
   });
 }
 
+// Generates fresh tests for one requirement from its new wording, reusing
+// the pipeline's own generation logic and tracking it as a step so it
+// counts toward the run's cost.
+async function regenerateTests(
+  requirement: typeof requirements.$inferSelect,
+  text: string,
+) {
+  try {
+    return await trackStep(
+      {
+        documentId: requirement.documentId,
+        runId: requirement.runId,
+        // Not part of a streamed graph run, so there's nobody to emit to; the
+        // caller gets the updated run back in the response instead.
+        emit: () => {},
+      },
+      "regenerate_tests",
+      async () => {
+        const { testCases: result, usage } = await generateTestsForRequirements([
+          {
+            id: requirement.code,
+            title: requirement.title,
+            text,
+            sourceChunkIds: requirement.sourceChunkIds,
+            // The reviewer has settled the wording, so these tests no longer
+            // rest on an assumption.
+            isAmbiguous: false,
+            ambiguityReason: null,
+            suggestedRewrite: null,
+          },
+        ]);
+        return { result, usage };
+      },
+    );
+  } catch (error) {
+    if (isRateLimitError(error)) {
+      throw new ServiceError(
+        "The model's rate limit was hit. Wait a minute, then try again.",
+        "rate_limited",
+      );
+    }
+    throw error;
+  }
+}
+
 // Resolves an ambiguous requirement with a rewrite (the suggested one or
 // the reviewer's own) and regenerates its tests from the new text — for
 // this requirement only, reusing the pipeline's own generation logic.
@@ -122,45 +160,21 @@ export async function resolveRequirement(
   requirementId: string,
   { actor, text }: z.infer<typeof ResolveRequirementSchema>,
 ): Promise<RunDetail> {
+  const id = requireUuid(requirementId, "requirement");
   const [current] = await db
     .select({ requirement: requirements, runStatus: runs.status })
     .from(requirements)
     .innerJoin(runs, eq(requirements.runId, runs.id))
-    .where(eq(requirements.id, requirementId));
+    .where(eq(requirements.id, id));
 
-  if (!current) throw new ReviewError("Requirement not found", 404);
+  if (!current) throw new ServiceError("Requirement not found", "not_found");
   const { requirement } = current;
-  if (!isReviewOpen(current.runStatus)) throw new ReviewError(REVIEW_CLOSED, 409);
+  if (!isReviewOpen(current.runStatus)) throw new ServiceError(REVIEW_CLOSED, "conflict");
   if (!requirement.isAmbiguous || requirement.ambiguityResolved) {
-    throw new ReviewError("This requirement isn't waiting for a rewrite.", 409);
+    throw new ServiceError("This requirement isn't waiting for a rewrite.", "conflict");
   }
 
-  const generated = await trackStep(
-    {
-      documentId: requirement.documentId,
-      runId: requirement.runId,
-      // Not part of a streamed graph run, so there's nobody to emit to; the
-      // caller gets the updated run back in the response instead.
-      emit: () => {},
-    },
-    "regenerate_tests",
-    async () => {
-      const { testCases: result, usage } = await generateTestsForRequirements([
-        {
-          id: requirement.code,
-          title: requirement.title,
-          text,
-          sourceChunkIds: requirement.sourceChunkIds,
-          // The reviewer has settled the wording, so these tests no longer
-          // rest on an assumption.
-          isAmbiguous: false,
-          ambiguityReason: null,
-          suggestedRewrite: null,
-        },
-      ]);
-      return { result, usage };
-    },
-  );
+  const generated = await regenerateTests(requirement, text);
 
   await db.transaction(async (tx) => {
     // Conditional on still being unresolved: if another reviewer resolved
@@ -170,20 +184,20 @@ export async function resolveRequirement(
       .set({ text, originalText: requirement.text, ambiguityResolved: true })
       .where(
         and(
-          eq(requirements.id, requirementId),
+          eq(requirements.id, id),
           eq(requirements.ambiguityResolved, false),
         ),
       )
       .returning({ id: requirements.id });
     if (!resolved) {
-      throw new ReviewError("Someone else resolved this requirement first.", 409);
+      throw new ServiceError("Someone else resolved this requirement first.", "conflict");
     }
     // Tests written against the old interpretation no longer apply.
-    await tx.delete(testCases).where(eq(testCases.requirementId, requirementId));
+    await tx.delete(testCases).where(eq(testCases.requirementId, id));
     if (generated.length > 0) {
       await tx.insert(testCases).values(
         generated.map((tc) => ({
-          requirementId,
+          requirementId: id,
           title: tc.title,
           type: tc.type,
           given: tc.given,
@@ -195,7 +209,7 @@ export async function resolveRequirement(
     }
     await tx.insert(reviewEvents).values({
       runId: requirement.runId,
-      requirementId,
+      requirementId: id,
       actor,
       action: "requirement_rewritten",
       changes: { text: { from: requirement.text, to: text } },
@@ -203,6 +217,6 @@ export async function resolveRequirement(
   });
 
   const detail = await getRunDetail(requirement.runId);
-  if (!detail) throw new ReviewError("Run not found", 404);
+  if (!detail) throw new ServiceError("Run not found", "not_found");
   return detail;
 }

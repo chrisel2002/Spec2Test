@@ -1,8 +1,5 @@
-import { NextResponse } from "next/server";
-import { z } from "zod";
-
-import { getRunSummaryCounts } from "@/lib/db/queries";
-import { buildRunSummary } from "@/lib/voice/text";
+import { respond } from "@/lib/services/http";
+import { getRunSpokenSummary } from "@/lib/services/runs";
 
 export const dynamic = "force-dynamic";
 
@@ -12,11 +9,8 @@ export async function GET(
   _request: Request,
   { params }: { params: Promise<{ runId: string }> },
 ) {
-  const parsedId = z.uuid().safeParse((await params).runId);
-  if (!parsedId.success) {
-    return NextResponse.json({ error: "Invalid run id" }, { status: 400 });
-  }
-
-  const counts = await getRunSummaryCounts(parsedId.data);
-  return NextResponse.json({ summary: buildRunSummary(counts), counts });
+  const { runId } = await params;
+  return respond(() => getRunSpokenSummary(runId), {
+    fallbackError: "Couldn't build the summary",
+  });
 }
