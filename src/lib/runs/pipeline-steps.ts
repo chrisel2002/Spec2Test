@@ -96,7 +96,9 @@ export function derivePipelineSteps(
         return {
           ...base,
           state: "running",
-          detail: p && p.total > 0 ? `${verb} ${p.done}/${p.total}` : "Starting…",
+          // Progress is live-only, so right after a reconnect there may be
+          // none yet until the node's next batch reports in.
+          detail: p && p.total > 0 ? `${verb} ${p.done}/${p.total}` : "Running…",
         };
       }
       case "succeeded":

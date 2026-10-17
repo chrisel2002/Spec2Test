@@ -1,69 +1,11 @@
+"use client";
+
+import { useState } from "react";
+
 import { ListenButton } from "@/components/listen-button";
-import { Badge } from "@/components/ui/badge";
+import { RequirementCard } from "@/components/requirements/requirement-card";
 import { Button } from "@/components/ui/button";
 import type { RequirementView, TestCaseView } from "@/lib/runs/types";
-
-type TestCaseRow = TestCaseView;
-type RequirementRow = RequirementView & { testCases: TestCaseRow[] };
-
-function TestCaseItem({ testCase }: { testCase: TestCaseRow }) {
-  return (
-    <li className="rounded border p-2 text-xs">
-      <div className="mb-1 flex items-center gap-2">
-        <span className="font-medium">{testCase.title}</span>
-        <Badge variant="outline">{testCase.type}</Badge>
-        {testCase.basedOnAssumption && (
-          <Badge variant="secondary">based on assumption</Badge>
-        )}
-      </div>
-      <p>
-        <span className="font-medium">Given</span> {testCase.given}
-      </p>
-      <p>
-        <span className="font-medium">When</span> {testCase.when}
-      </p>
-      <p>
-        <span className="font-medium">Then</span> {testCase.then}
-      </p>
-    </li>
-  );
-}
-
-function RequirementItem({ requirement }: { requirement: RequirementRow }) {
-  return (
-    <li className="rounded border p-3">
-      <div className="mb-1 flex items-center gap-2">
-        <span className="font-mono text-xs text-muted-foreground">
-          {requirement.code}
-        </span>
-        <span className="font-medium">{requirement.title}</span>
-        {requirement.isAmbiguous && (
-          <Badge variant="destructive">ambiguous</Badge>
-        )}
-      </div>
-      <p className="mb-2 text-sm text-muted-foreground">{requirement.text}</p>
-      {requirement.isAmbiguous && (
-        <div className="mb-2 rounded bg-muted/50 p-2 text-xs">
-          <p>
-            <span className="font-medium">Why:</span>{" "}
-            {requirement.ambiguityReason}
-          </p>
-          <p>
-            <span className="font-medium">Suggested rewrite:</span>{" "}
-            {requirement.suggestedRewrite}
-          </p>
-        </div>
-      )}
-      {requirement.testCases.length > 0 && (
-        <ul className="space-y-2">
-          {requirement.testCases.map((tc) => (
-            <TestCaseItem key={tc.id} testCase={tc} />
-          ))}
-        </ul>
-      )}
-    </li>
-  );
-}
 
 async function fetchRunSummary(runId: string): Promise<string> {
   const response = await fetch(`/api/runs/${runId}/summary`);
@@ -72,62 +14,119 @@ async function fetchRunSummary(runId: string): Promise<string> {
   return body.summary;
 }
 
+function Stat({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-lg border bg-card px-3 py-2">
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className="text-lg font-semibold tabular-nums">{value}</p>
+    </div>
+  );
+}
+
+export function RequirementSkeleton() {
+  return (
+    <li className="animate-pulse rounded-xl border bg-card p-4" aria-hidden>
+      <div className="mb-2 flex gap-2">
+        <div className="h-4 w-12 rounded bg-muted" />
+        <div className="h-4 w-48 rounded bg-muted" />
+      </div>
+      <div className="h-3 w-3/4 rounded bg-muted" />
+    </li>
+  );
+}
+
 export function RequirementsPanel({
-  documentId,
   runId,
-  requirements: requirementViews,
+  requirements,
   testCases,
-  generating,
-  error,
-  onGenerate,
+  extracting,
   voiceEnabled,
+  renderTestCase,
+  renderAmbiguityFooter,
 }: {
-  documentId: string | null;
-  runId: string | null;
+  runId: string;
   requirements: RequirementView[];
   testCases: TestCaseView[];
-  generating: boolean;
-  error: string | null;
-  onGenerate: () => void;
+  // Extraction is still running, so more cards are on the way.
+  extracting: boolean;
   voiceEnabled: boolean;
+  renderTestCase?: (testCase: TestCaseView) => React.ReactNode;
+  renderAmbiguityFooter?: (requirement: RequirementView) => React.ReactNode;
 }) {
-  const requirements: RequirementRow[] = requirementViews.map((r) => ({
-    ...r,
-    testCases: testCases.filter((tc) => tc.requirementId === r.id),
-  }));
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
-  if (!documentId) {
-    return (
-      <p className="text-sm text-muted-foreground">
-        Upload a spec to get started.
-      </p>
-    );
+  const testsByRequirement = new Map<string, TestCaseView[]>();
+  for (const tc of testCases) {
+    const list = testsByRequirement.get(tc.requirementId) ?? [];
+    list.push(tc);
+    testsByRequirement.set(tc.requirementId, list);
+  }
+
+  const allExpanded =
+    requirements.length > 0 && requirements.every((r) => expanded.has(r.id));
+
+  function toggle(id: string) {
+    setExpanded((previous) => {
+      const next = new Set(previous);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   }
 
   return (
-    <div>
-      <div className="mb-4 flex items-center gap-3">
-        <Button onClick={onGenerate} disabled={generating}>
-          {generating ? "Generating…" : "Generate tests"}
-        </Button>
-        {voiceEnabled && runId && requirements.length > 0 && !generating && (
-          <ListenButton
-            label="Listen to summary"
-            getText={() => fetchRunSummary(runId)}
-          />
-        )}
-        {error && <p className="text-sm text-destructive">{error}</p>}
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <Stat label="Requirements" value={requirements.length} />
+        <Stat
+          label="Ambiguous"
+          value={requirements.filter((r) => r.isAmbiguous && !r.ambiguityResolved).length}
+        />
+        <Stat label="Test cases" value={testCases.length} />
+        <Stat
+          label="Approved"
+          value={testCases.filter((tc) => tc.status === "approved").length}
+        />
       </div>
-      {requirements.length === 0 && !generating && (
-        <p className="text-sm text-muted-foreground">
-          No requirements yet. Click &ldquo;Generate tests&rdquo; to extract
-          them from this document.
-        </p>
+
+      {requirements.length > 0 && (
+        <div className="flex items-center justify-between">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() =>
+              setExpanded(allExpanded ? new Set() : new Set(requirements.map((r) => r.id)))
+            }
+          >
+            {allExpanded ? "Collapse all" : "Expand all"}
+          </Button>
+          {voiceEnabled && !extracting && (
+            <ListenButton
+              label="Listen to summary"
+              getText={() => fetchRunSummary(runId)}
+            />
+          )}
+        </div>
       )}
-      <ul className="space-y-3">
+
+      <ul className="space-y-3" aria-label="Requirements" aria-busy={extracting}>
         {requirements.map((requirement) => (
-          <RequirementItem key={requirement.id} requirement={requirement} />
+          <RequirementCard
+            key={requirement.id}
+            requirement={requirement}
+            testCases={testsByRequirement.get(requirement.id) ?? []}
+            expanded={expanded.has(requirement.id)}
+            onToggle={() => toggle(requirement.id)}
+            renderTestCase={renderTestCase}
+            ambiguityFooter={renderAmbiguityFooter?.(requirement)}
+          />
         ))}
+        {extracting && (
+          <>
+            <RequirementSkeleton />
+            <RequirementSkeleton />
+          </>
+        )}
       </ul>
     </div>
   );

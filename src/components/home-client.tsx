@@ -6,6 +6,7 @@ import { AppHeader } from "@/components/app-header";
 import { ChatWithSpec } from "@/components/chat-with-spec";
 import type { DocumentSummary } from "@/components/document-list";
 import { RequirementsPanel } from "@/components/requirements-panel";
+import { RunToolbar } from "@/components/run-toolbar";
 import { Sidebar } from "@/components/sidebar";
 import {
   Tabs,
@@ -46,6 +47,7 @@ export function HomeClient({
   );
   const [runs, setRuns] = useState(initialRuns);
   const run = useRun(initialRunDetail);
+  const [starting, setStarting] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
 
   const running = run.detail?.run.status === "running";
@@ -133,20 +135,25 @@ export function HomeClient({
   // "running" is what makes useRun open the event stream.
   async function handleStartRun() {
     if (!selectedDocumentId) return;
+    setStarting(true);
     setStartError(null);
 
-    const response = await fetch(`/api/documents/${selectedDocumentId}/runs`, {
-      method: "POST",
-    });
-    const body = await response.json();
-    if (!response.ok) {
-      setStartError(body.error ?? "Couldn't start the run");
-      return;
-    }
+    try {
+      const response = await fetch(`/api/documents/${selectedDocumentId}/runs`, {
+        method: "POST",
+      });
+      const body = await response.json();
+      if (!response.ok) {
+        setStartError(body.error ?? "Couldn't start the run");
+        return;
+      }
 
-    const newRun: RunSummary = body;
-    setRuns((previous) => [newRun, ...previous]);
-    run.load(emptyDetail(newRun));
+      const newRun: RunSummary = body;
+      setRuns((previous) => [newRun, ...previous]);
+      run.load(emptyDetail(newRun));
+    } finally {
+      setStarting(false);
+    }
   }
 
   return (
@@ -166,7 +173,22 @@ export function HomeClient({
           costUsd={costUsd}
         />
         <main className="flex-1 overflow-auto p-6">
-          <Tabs defaultValue="requirements">
+          <Tabs defaultValue="requirements" className="mx-auto max-w-5xl">
+            {selectedDocument && (
+              <div className="mb-4 space-y-2">
+                <RunToolbar
+                  run={run.detail?.run ?? null}
+                  canStart={selectedDocument.status === "ready" && !running}
+                  starting={starting}
+                  onStart={handleStartRun}
+                >
+                  <h1 className="truncate text-lg font-semibold">
+                    {selectedDocument.filename}
+                  </h1>
+                </RunToolbar>
+                {startError && <p className="text-sm text-destructive">{startError}</p>}
+              </div>
+            )}
             <TabsList>
               <TabsTrigger value="requirements">Requirements</TabsTrigger>
               <TabsTrigger value="traceability">
@@ -175,16 +197,21 @@ export function HomeClient({
               <TabsTrigger value="chat">Chat with spec</TabsTrigger>
             </TabsList>
             <TabsContent value="requirements" className="mt-4">
-              <RequirementsPanel
-                documentId={selectedDocumentId}
-                runId={run.detail?.run.id ?? null}
-                requirements={run.detail?.requirements ?? []}
-                testCases={run.detail?.testCases ?? []}
-                generating={running}
-                error={startError ?? run.detail?.run.error ?? null}
-                onGenerate={handleStartRun}
-                voiceEnabled={voiceEnabled}
-              />
+              {run.detail ? (
+                <RequirementsPanel
+                  runId={run.detail.run.id}
+                  requirements={run.detail.requirements}
+                  testCases={run.detail.testCases}
+                  extracting={steps[1].state === "running" || (running && run.detail.steps.length === 0)}
+                  voiceEnabled={voiceEnabled}
+                />
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  {selectedDocument
+                    ? "No runs yet. Click “Run agent” to extract requirements and generate tests."
+                    : "Upload a spec to get started."}
+                </p>
+              )}
             </TabsContent>
             <TabsContent value="traceability" className="mt-4">
               <p className="text-sm text-muted-foreground">
