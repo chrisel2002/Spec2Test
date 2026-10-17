@@ -59,7 +59,7 @@ export async function POST(
   // the event stream as soon as it has the id, and must not mistake a run
   // that hasn't started yet for one a server restart cut off.
   runEventBus.markActive(run.id);
-  after(() => executeRun(run.id, documentId));
+  after(() => executeRun(run.id, { kind: "start", documentId }));
 
   return NextResponse.json(run, { status: 202 });
 }

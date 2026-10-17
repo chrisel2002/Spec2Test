@@ -1,6 +1,7 @@
 import "server-only";
 
-import { and, eq } from "drizzle-orm";
+import { Command } from "@langchain/langgraph";
+import { and, eq, inArray } from "drizzle-orm";
 
 import { db } from "@/lib/db/client";
 import { getRunDetail } from "@/lib/db/queries";
@@ -13,7 +14,8 @@ import {
 } from "@/lib/runs/types";
 import { toRunSummary } from "@/lib/runs/views";
 
-import { agentGraph } from "./graph";
+import { getAgentGraph } from "./graph";
+import type { ReviewResume } from "./nodes/human-review-node";
 
 type RunPatch = Partial<
   Pick<typeof runs.$inferInsert, "status" | "error" | "rateLimited" | "finishedAt">
@@ -39,8 +41,34 @@ export async function createRun(documentId: string): Promise<RunSummary> {
   return toRunSummary(row);
 }
 
+// How to (re)enter the graph for a run:
+// - start:  fresh input; the graph runs from START.
+// - resume: answer the human-review interrupt; the graph continues inside
+//           the humanReview node, where interrupt() now returns this value.
+// - retry:  no input; the graph continues from its last checkpoint, which
+//           re-runs the node that failed (nodes are idempotent for this).
+export type RunInput =
+  | { kind: "start"; documentId: string }
+  | { kind: "resume"; resume: ReviewResume }
+  | { kind: "retry" };
+
+type GraphInput = Parameters<
+  Awaited<ReturnType<typeof getAgentGraph>>["stream"]
+>[0];
+
+function graphInput(runId: string, input: RunInput): GraphInput {
+  switch (input.kind) {
+    case "start":
+      return { documentId: input.documentId, runId };
+    case "resume":
+      return new Command({ resume: input.resume });
+    case "retry":
+      return null;
+  }
+}
+
 // Executes the graph for one run and relays everything its nodes emit to
-// the event bus. Meant to be called in the background (see the route's
+// the event bus. Meant to be called in the background (see the routes'
 // after()), never awaited by a request: the run must keep going when the
 // browser that started it disconnects.
 //
@@ -48,13 +76,16 @@ export async function createRun(documentId: string): Promise<RunSummary> {
 // to config.writer — our RunEvents — in order. The other stream modes
 // ("updates", "values") yield graph state after each node, which is too
 // coarse: they can't express "requirement 5 of 12 just finished".
-export async function executeRun(runId: string, documentId: string) {
+export async function executeRun(runId: string, input: RunInput) {
   runEventBus.markActive(runId);
+  // thread_id ties this execution to the run's saved checkpoints.
+  const config = { configurable: { thread_id: runId } };
   try {
-    const stream = await agentGraph.stream(
-      { documentId, runId },
-      { streamMode: "custom" },
-    );
+    const graph = await getAgentGraph();
+    const stream = await graph.stream(graphInput(runId, input), {
+      ...config,
+      streamMode: "custom",
+    });
     for await (const chunk of stream) {
       // Nodes only ever write RunEvents, but the writer is typed unknown;
       // parsing keeps a malformed event from ever reaching a browser.
@@ -62,7 +93,16 @@ export async function executeRun(runId: string, documentId: string) {
       if (event.success) runEventBus.publish(runId, event.data);
     }
 
-    await updateRun(runId, { status: "completed", finishedAt: new Date() });
+    // The stream ends both when the graph finishes and when it pauses at
+    // interrupt(); the saved state tells the two apart.
+    const snapshot = await graph.getState(config);
+    const paused = snapshot.tasks.some((task) => task.interrupts.length > 0);
+    await updateRun(
+      runId,
+      paused
+        ? { status: "waiting_for_review" }
+        : { status: "completed", finishedAt: new Date() },
+    );
   } catch (error) {
     console.error(`Run ${runId} failed`, error);
     await updateRun(runId, {
@@ -73,6 +113,31 @@ export async function executeRun(runId: string, documentId: string) {
   } finally {
     runEventBus.markInactive(runId);
   }
+}
+
+// Atomically moves a run from one of `from` to "running", so two clicks
+// (or two tabs) can't both resume or retry it. False if it wasn't in an
+// allowed status.
+export async function claimRun(
+  runId: string,
+  from: RunSummary["status"][],
+): Promise<boolean> {
+  const [row] = await db
+    .update(runs)
+    .set({ status: "running", error: null, rateLimited: false, finishedAt: null })
+    .where(and(eq(runs.id, runId), inArray(runs.status, from)))
+    .returning();
+  if (!row) return false;
+  runEventBus.publish(runId, { type: "run", run: toRunSummary(row) });
+  return true;
+}
+
+// Whether the graph has a saved place to continue from. A run from before
+// checkpointing existed has none, so there's nothing to retry.
+export async function hasCheckpointToContinue(runId: string): Promise<boolean> {
+  const graph = await getAgentGraph();
+  const snapshot = await graph.getState({ configurable: { thread_id: runId } });
+  return snapshot.next.length > 0;
 }
 
 // getRunDetail, plus one repair: a run the DB says is "running" but that

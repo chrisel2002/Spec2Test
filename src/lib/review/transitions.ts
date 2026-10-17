@@ -64,7 +64,7 @@ export function nextStatus(
 // that the agent is still writing tests; after the matrix is built, the
 // run is a signed-off record and changes would silently contradict it.
 export function isReviewOpen(runStatus: RunStatus): boolean {
-  return runStatus === "waiting_for_review" || runStatus === "completed";
+  return runStatus === "waiting_for_review";
 }
 
 const EDITABLE_FIELDS = ["title", "type", "given", "when", "then"] as const;

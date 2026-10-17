@@ -50,6 +50,7 @@ export function HomeClient({
   const run = useRun(initialRunDetail);
   const [reviewer, setReviewer] = useReviewerName();
   const [starting, setStarting] = useState(false);
+  const [continuing, setContinuing] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
 
   const running = run.detail?.run.status === "running";
@@ -158,6 +159,35 @@ export function HomeClient({
     }
   }
 
+  // Build matrix (resume) and Retry both continue the graph from its
+  // checkpoint. On success the run flips to "running" locally, which is
+  // what makes useRun reopen the event stream.
+  async function continueRun(path: "resume" | "retry") {
+    const current = run.detail?.run;
+    if (!current) return;
+    setContinuing(true);
+    setStartError(null);
+
+    try {
+      const response = await fetch(`/api/runs/${current.id}/${path}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ actor: reviewer }),
+      });
+      if (!response.ok) {
+        const body: { error?: string } = await response.json().catch(() => ({}));
+        setStartError(body.error ?? "Couldn't continue the run");
+        return;
+      }
+      run.apply({
+        type: "run",
+        run: { ...current, status: "running", error: null, rateLimited: false },
+      });
+    } finally {
+      setContinuing(false);
+    }
+  }
+
   return (
     <div className="flex h-screen flex-col">
       <AppHeader
@@ -188,6 +218,9 @@ export function HomeClient({
                   canStart={selectedDocument.status === "ready" && !running}
                   starting={starting}
                   onStart={handleStartRun}
+                  continuing={continuing}
+                  onBuildMatrix={() => continueRun("resume")}
+                  onRetry={() => continueRun("retry")}
                 >
                   <h1 className="truncate text-lg font-semibold">
                     {selectedDocument.filename}

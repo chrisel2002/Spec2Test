@@ -20,5 +20,9 @@ export const AgentStateSchema = z.object({
   // Set by node 1 when it finds zero requirements; read by the conditional
   // edge that routes straight to END instead of running nodes 2 and 3.
   stopReason: z.string().nullable().default(null),
+
+  // Set when the human-review checkpoint is resumed: who clicked
+  // "Build matrix".
+  reviewedBy: z.string().nullable().default(null),
 });
 export type AgentState = z.infer<typeof AgentStateSchema>;

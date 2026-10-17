@@ -10,6 +10,7 @@ function makeState(overrides: Partial<AgentState> = {}): AgentState {
     requirements: [],
     testCases: [],
     stopReason: null,
+    reviewedBy: null,
     ...overrides,
   };
 }

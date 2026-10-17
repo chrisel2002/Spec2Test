@@ -1,4 +1,4 @@
-import { Loader2, Play } from "lucide-react";
+import { Loader2, Play, RotateCcw, Table2 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -33,12 +33,19 @@ export function RunToolbar({
   canStart,
   starting,
   onStart,
+  continuing,
+  onBuildMatrix,
+  onRetry,
   children,
 }: {
   run: RunSummary | null;
   canStart: boolean;
   starting: boolean;
   onStart: () => void;
+  // A resume or retry request is in flight.
+  continuing: boolean;
+  onBuildMatrix: () => void;
+  onRetry: () => void;
   children?: React.ReactNode;
 }) {
   return (
@@ -46,6 +53,18 @@ export function RunToolbar({
       {children}
       {run && <RunStatusBadge status={run.status} />}
       <div className="ml-auto flex items-center gap-2">
+        {run?.status === "failed" && (
+          <Button variant="outline" onClick={onRetry} disabled={continuing}>
+            <RotateCcw aria-hidden />
+            Retry
+          </Button>
+        )}
+        {run?.status === "waiting_for_review" && (
+          <Button onClick={onBuildMatrix} disabled={continuing}>
+            {continuing ? <Loader2 className="animate-spin" aria-hidden /> : <Table2 aria-hidden />}
+            Build matrix
+          </Button>
+        )}
         <Button
           variant={run ? "outline" : "default"}
           onClick={onStart}

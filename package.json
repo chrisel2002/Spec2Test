@@ -24,6 +24,7 @@
     "@elevenlabs/elevenlabs-js": "^2.72.0",
     "@langchain/core": "^1.2.14",
     "@langchain/langgraph": "^1.4.19",
+    "@langchain/langgraph-checkpoint-postgres": "1.1.0",
     "ai": "^7.0.127",
     "class-variance-authority": "^0.7.1",
     "cn": "^0.4.0",
