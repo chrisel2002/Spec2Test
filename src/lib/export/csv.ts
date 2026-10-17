@@ -18,7 +18,7 @@ export const CSV_HEADER = [
 
 // Excel only reads a CSV as UTF-8 (so "€" isn't garbled into "â‚¬") when the
 // file starts with a byte order mark.
-const UTF8_BOM = "﻿";
+const UTF8_BOM = "\uFEFF";
 
 // One cell, per RFC 4180: a value containing a quote, comma, or line break
 // is wrapped in quotes, and quotes inside it are doubled. Line breaks stay

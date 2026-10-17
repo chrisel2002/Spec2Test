@@ -69,6 +69,11 @@ test("reviews generated tests and builds the traceability matrix", async ({ page
   // 2 of 7 testable requirements (10 minus 3 ambiguous) now have an approved test.
   await expect(page.getByTestId("coverage-percent")).toHaveText("29%");
 
+  // Exports wait for the signed-off run, and say why.
+  await page.getByRole("tab", { name: "Traceability matrix" }).click();
+  await expect(page.getByRole("button", { name: "Export CSV" })).toBeDisabled();
+  await expect(page.getByTestId("export-disabled-reason")).toContainText("Build matrix");
+
   // Resume the paused graph.
   await page.getByRole("button", { name: "Build matrix" }).click();
   await expect(page.getByTestId("run-status")).toHaveAttribute("data-status", "completed", {
@@ -76,8 +81,17 @@ test("reviews generated tests and builds the traceability matrix", async ({ page
   });
   await expect(page.getByTestId("step-build_matrix")).toHaveAttribute("data-state", "done");
 
+  // Now the CSV downloads, with the BOM Excel needs and our edited test.
+  const download = page.waitForEvent("download");
+  await page.getByRole("link", { name: "Export CSV" }).click();
+  const csv = await (await download).createReadStream();
+  const chunks: Buffer[] = [];
+  for await (const chunk of csv) chunks.push(chunk as Buffer);
+  const bytes = Buffer.concat(chunks);
+  expect(bytes.subarray(0, 3)).toEqual(Buffer.from([0xef, 0xbb, 0xbf]));
+  expect(bytes.toString("utf8")).toContain("Cart is empty for a brand-new session");
+
   // The matrix shows exactly the statuses we set.
-  await page.getByRole("tab", { name: "Traceability matrix" }).click();
   const row = (code: string) =>
     page.locator(`[data-testid="matrix-row"][data-code="${code}"]`);
 
