@@ -26,7 +26,7 @@ export async function generateTestsNode(
         const requirementRows = await db
           .select({ id: requirementsTable.id, code: requirementsTable.code })
           .from(requirementsTable)
-          .where(eq(requirementsTable.documentId, state.documentId));
+          .where(eq(requirementsTable.runId, state.runId));
         const codeToId = new Map(requirementRows.map((r) => [r.code, r.id]));
 
         await db.insert(testCasesTable).values(

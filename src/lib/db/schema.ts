@@ -38,6 +38,24 @@ export const documentStatusEnum = pgEnum("document_status", [
   "ready",
 ]);
 
+// running:            a graph node is executing
+// waiting_for_review: paused at the human-review checkpoint (interrupt())
+// completed:          the matrix was built after review
+// failed:             a node threw; retrying resumes from the last checkpoint
+export const runStatusEnum = pgEnum("run_status", [
+  "running",
+  "waiting_for_review",
+  "completed",
+  "failed",
+]);
+
+export const reviewActionEnum = pgEnum("review_action", [
+  "approved",
+  "rejected",
+  "edited",
+  "requirement_rewritten",
+]);
+
 export const testCaseTypeEnum = pgEnum("test_case_type", [
   "positive",
   "negative",
@@ -95,6 +113,32 @@ export const chunks = pgTable(
   ],
 );
 
+// One row per agent pipeline execution. Its id doubles as LangGraph's
+// thread_id, so the checkpointer's saved graph state for this run is found
+// by the same key. The checkpoint holds LangGraph's internal state (opaque
+// blobs); this table holds what the UI needs to query: status and history.
+export const runs = pgTable(
+  "runs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    documentId: uuid("document_id")
+      .notNull()
+      .references(() => documents.id, { onDelete: "cascade" }),
+    status: runStatusEnum("status").notNull().default("running"),
+    error: text("error"),
+    // True when the failure was a provider rate limit/quota, so the UI can
+    // say "wait and retry" instead of showing a raw error.
+    rateLimited: boolean("rate_limited").notNull().default(false),
+    // Coverage at the moment the matrix was built: the signed-off number.
+    coverage: json("coverage").$type<{ covered: number; total: number }>(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    finishedAt: timestamp("finished_at", { withTimezone: true }),
+  },
+  (table) => [index("runs_document_idx").on(table.documentId, table.createdAt)],
+);
+
 export const requirements = pgTable(
   "requirements",
   {
@@ -102,9 +146,14 @@ export const requirements = pgTable(
     documentId: uuid("document_id")
       .notNull()
       .references(() => documents.id, { onDelete: "cascade" }),
+    // Requirements belong to a run, not just a document, so every past run
+    // keeps its own reviewed snapshot and can be reopened from the history.
+    runId: uuid("run_id")
+      .notNull()
+      .references(() => runs.id, { onDelete: "cascade" }),
     // Human-readable, e.g. "REQ-01" — assigned by our code after extraction,
     // never by the model, so numbering stays sequential and gap-free across
-    // batched extraction calls. Unique per document, not globally.
+    // batched extraction calls. Unique per run, not globally.
     code: text("code").notNull(),
     title: text("title").notNull(),
     text: text("text").notNull(),
@@ -116,11 +165,15 @@ export const requirements = pgTable(
     isAmbiguous: boolean("is_ambiguous").notNull().default(false),
     ambiguityReason: text("ambiguity_reason"),
     suggestedRewrite: text("suggested_rewrite"),
+    // Set when a reviewer resolves an ambiguous requirement: `text` becomes
+    // the accepted rewrite and the model's original wording is kept here.
+    ambiguityResolved: boolean("ambiguity_resolved").notNull().default(false),
+    originalText: text("original_text"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
   },
-  (table) => [uniqueIndex("requirements_document_code_idx").on(table.documentId, table.code)],
+  (table) => [uniqueIndex("requirements_run_code_idx").on(table.runId, table.code)],
 );
 
 export const testCases = pgTable("test_cases", {
@@ -140,18 +193,50 @@ export const testCases = pgTable("test_cases", {
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
 });
+
+// Append-only audit trail of human review: who changed what, and when.
+// testCaseId is nulled rather than cascaded when a test is deleted (e.g.
+// regenerated after a rewrite), so the history outlives the row it describes.
+export const reviewEvents = pgTable(
+  "review_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    runId: uuid("run_id")
+      .notNull()
+      .references(() => runs.id, { onDelete: "cascade" }),
+    requirementId: uuid("requirement_id")
+      .notNull()
+      .references(() => requirements.id, { onDelete: "cascade" }),
+    testCaseId: uuid("test_case_id").references(() => testCases.id, {
+      onDelete: "set null",
+    }),
+    actor: text("actor").notNull(),
+    action: reviewActionEnum("action").notNull(),
+    fromStatus: testCaseStatusEnum("from_status"),
+    toStatus: testCaseStatusEnum("to_status"),
+    // Before/after values for edits and rewrites.
+    changes: json("changes").$type<Record<string, { from: string; to: string }>>(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [index("review_events_run_idx").on(table.runId, table.createdAt)],
+);
 
 export const agentRuns = pgTable("agent_runs", {
   id: uuid("id").primaryKey().defaultRandom(),
   documentId: uuid("document_id")
     .notNull()
     .references(() => documents.id, { onDelete: "cascade" }),
-  // Correlates the 3 step-rows of one pipeline execution, so the status
-  // endpoint can fetch "this run's steps" instead of every historical row
-  // for the document. Not a FK — there's no parent "runs" table, just a
-  // shared id minted once when a run starts.
-  runId: uuid("run_id").notNull(),
+  // The run this step belongs to. A run has one row per executed step
+  // (a retried step gets a new row; the latest row per step wins).
+  runId: uuid("run_id")
+    .notNull()
+    .references(() => runs.id, { onDelete: "cascade" }),
   step: text("step").notNull(),
   status: agentRunStatusEnum("status").notNull().default("pending"),
   // Field names match the AI SDK's LanguageModelUsage shape directly, so

@@ -28,6 +28,7 @@ export async function extractRequirementsNode(
         await db.insert(requirementsTable).values(
           requirements.map((r) => ({
             documentId: state.documentId,
+            runId: state.runId,
             code: r.id,
             title: r.title,
             text: r.text,

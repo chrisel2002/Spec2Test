@@ -32,7 +32,7 @@ export async function checkAmbiguityNode(
           })
           .where(
             and(
-              eq(requirementsTable.documentId, state.documentId),
+              eq(requirementsTable.runId, state.runId),
               eq(requirementsTable.code, requirement.id),
             ),
           );

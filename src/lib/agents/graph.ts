@@ -4,7 +4,7 @@ import { StateGraph, START, END } from "@langchain/langgraph";
 import { eq } from "drizzle-orm";
 
 import { db } from "@/lib/db/client";
-import { requirements as requirementsTable } from "@/lib/db/schema";
+import { runs } from "@/lib/db/schema";
 
 import { checkAmbiguityNode } from "./nodes/check-ambiguity-node";
 import { extractRequirementsNode } from "./nodes/extract-requirements-node";
@@ -28,12 +28,26 @@ const graph = new StateGraph(AgentStateSchema)
 export async function runAgentPipeline(documentId: string): Promise<AgentState> {
   const runId = randomUUID();
 
-  // A document's requirements/test_cases are a single current snapshot, not
-  // an accumulating history — re-running replaces the previous set rather
-  // than piling duplicates on top of it. Cascades to test_cases via FK.
-  await db
-    .delete(requirementsTable)
-    .where(eq(requirementsTable.documentId, documentId));
+  // Each run keeps its own requirements and test cases, so re-running no
+  // longer replaces the previous run's results.
+  await db.insert(runs).values({ id: runId, documentId });
 
-  return graph.invoke({ documentId, runId });
+  try {
+    const state = await graph.invoke({ documentId, runId });
+    await db
+      .update(runs)
+      .set({ status: "completed", finishedAt: new Date() })
+      .where(eq(runs.id, runId));
+    return state;
+  } catch (error) {
+    await db
+      .update(runs)
+      .set({
+        status: "failed",
+        finishedAt: new Date(),
+        error: error instanceof Error ? error.message : String(error),
+      })
+      .where(eq(runs.id, runId));
+    throw error;
+  }
 }
