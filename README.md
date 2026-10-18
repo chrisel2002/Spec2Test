@@ -1,332 +1,35 @@
 # Spec2Test
 
-Turn software requirements into test cases with AI agents.
+**Turn software requirements into reviewed, traceable test cases with AI agents.**
 
+[![CI](https://github.com/chrisel2002/Spec2Test/actions/workflows/ci.yml/badge.svg)](https://github.com/chrisel2002/Spec2Test/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
+**Live demo: [spec2test.onrender.com](https://spec2test.onrender.com)**. It runs on a free host that sleeps when idle, so the first page can take up to a minute to load. The demo shows two sample specs with finished, reviewed runs; uploading and running the agents need an access code ([why](#demo-mode)).
+
+<!-- GIF of the full flow (upload → live agent steps → review → matrix → export) goes here: docs/images/demo.gif -->
 ![Spec2Test paused for human review: live agent steps, coverage, and requirement cards with an ambiguous requirement highlighted](docs/images/main-screen.png)
 
-<sub>A run paused at the human-review checkpoint (synthetic spec, mock model). A GIF of the full flow will replace this.</sub>
+## What it does
 
-## Features
+You upload a requirements document (PDF or Markdown). A LangGraph agent pipeline extracts atomic requirements, flags the ambiguous or untestable ones with a suggested rewrite, and drafts Given/When/Then test cases for each. The run then pauses: a person approves, edits, or rejects every test, and only then is the traceability matrix built. The result exports as CSV, Playwright test skeletons, or a Markdown report, and the same tools are available to AI agents through an MCP server.
 
-- **Upload a spec** as PDF or Markdown; it's chunked and embedded for retrieval
-- **Requirement extraction** into atomic requirements, with ambiguous or untestable ones flagged and a suggested rewrite
-- **Test case generation** in Given/When/Then form, linked to each requirement
-- **Live agent progress**: every step, and progress within a step ("Generating tests 5/12"), streams to the browser as it happens; requirements appear as they're extracted
-- **Human review**: approve, edit, or reject each test; resolve ambiguous requirements by accepting the suggested rewrite or writing your own, which regenerates that requirement's tests. Every change is recorded (who, what, when)
-- **Human-in-the-loop checkpoint**: the agent pauses after generating tests and only builds the matrix once a person clicks **Build matrix**
-- **Traceability matrix** with requirement-to-test links, review statuses, highlighted gaps, and filters
-- **Run history**: every run is kept and can be reopened; the open run is in the URL, so it survives a refresh, and failed runs retry from the step that failed
-- **Exports** for a signed-off run: the matrix as CSV (Excel-ready, optionally approved tests only), Playwright test skeletons as a zip (one `.spec.ts` per requirement, a `test.fixme` per approved test), and a Markdown report for a ticket or pull request
-- **MCP server** so AI agents like Claude Code can use Spec2Test as a tool: ingest specs, start runs, read requirements and the matrix, export tests. Human review stays in the web app
-- **Evaluation harness**: deterministic metrics against hand-written golden answers for each sample spec, run in CI on a mock model and manually on the real one (see [Evaluation](#evaluation))
-- **Insights page**: cost and tokens per run and agent step, time per step, the latest eval scores, and how often reviewers approve, edit, or reject generated tests
-- **Hardened against bad input**: prompt-injection defences, upload checks by file content, rate limits on everything that spends API quota (see [Security](#security))
-- **Chat with spec**: questions answered only from retrieved excerpts, with citations
-- **Voice output (ElevenLabs)**: "Listen" buttons read chat answers and a short run summary aloud. Optional, and hidden when no API key is set
+### Key features
 
-## Tech stack
-
-- **App:** Next.js (App Router) with TypeScript in strict mode
-- **UI:** Tailwind CSS + shadcn/ui
-- **Validation:** Zod for all inputs, API payloads, and LLM structured outputs
-- **Database:** PostgreSQL with the pgvector extension, accessed through Drizzle ORM
-- **AI:** Vercel AI SDK for model calls, streaming, and tool calling; LangGraph.js for the agent graph
-- **Testing:** Vitest for unit tests, Playwright for end-to-end tests, plus an eval script in `evals/`
-- **Infrastructure:** Docker Compose for local development, GitHub Actions for CI, GCP Cloud Run for deployment
-- **Package manager:** pnpm
-
-## Running locally
-
-1. Copy the environment template and fill in real values:
-   ```
-   cp .env.example .env.local
-   ```
-2. Start PostgreSQL with pgvector:
-   ```
-   docker compose up -d
-   ```
-3. Install dependencies and apply database migrations:
-   ```
-   pnpm install
-   pnpm db:migrate
-   ```
-4. Start the dev server:
-   ```
-   pnpm dev
-   ```
-5. Check everything is wired up at [http://localhost:3000/api/health](http://localhost:3000/api/health).
-
-### Other commands
-
-```
-pnpm test               run unit tests (no DB or API key needed)
-pnpm test:coverage      unit tests with a coverage report for src/lib/ (fails below the minimums)
-pnpm test:integration   run tests against a real DB + embedding API (needs .env.local)
-pnpm test:e2e           run Playwright tests (own spec2test_e2e database, mock model, no API keys)
-pnpm test:mcp           run the MCP server tests (own spec2test_mcp database, mock model, no API keys)
-pnpm mcp:build          compile the MCP server to dist/mcp/main.mjs (pnpm install does this too)
-pnpm mcp                start the MCP server on stdio (normally Claude Code starts it for you)
-pnpm eval               run the evals with the real model from .env.local (uses quota; run manually)
-pnpm eval:mock          run the evals with the mock model and check the CI thresholds (no API key)
-pnpm knip               find unused files, exports, and dependencies
-pnpm db:generate        generate a new Drizzle migration after changing the schema
-pnpm lint               lint and type-check
-```
-
-## Use Spec2Test from Claude Code (MCP)
-
-Spec2Test is also an [MCP](https://modelcontextprotocol.io) server, so AI
-agents like Claude Code can use it as a tool: ingest a spec, start a run,
-read the requirements and the traceability matrix, and export Playwright
-tests. It runs locally over stdio and uses the same database and
-`.env.local` as the web app.
-
-**Build it.** The server runs as compiled JavaScript,
-`dist/mcp/main.mjs`, which `pnpm install` builds automatically. After
-changing anything under `src/` that the server uses, rebuild it:
-
-```
-pnpm mcp:build
-```
-
-**Register it.** The repo includes a project-scoped `.mcp.json`, so
-running `claude` in the repo asks you once to approve the `spec2test`
-server. To register it yourself, run this from the repo root:
-
-```
-claude mcp add --scope project spec2test -- node dist/mcp/main.mjs
-```
-
-To use it from any directory, register it for your user with the
-absolute path; the server finds its packages and `.env.local` from its
-own location:
-
-```
-claude mcp add --scope user spec2test -- node /path/to/Spec2Test/dist/mcp/main.mjs
-```
-
-Check it with `claude mcp list`, which should show `✔ Connected`, or
-`/mcp` inside a session. Postgres must be running (`docker compose up
--d`), and the web app too (`pnpm dev`) for the review step.
-
-*Why compiled:* running the TypeScript through `tsx` meant transpiling
-hundreds of files on every cold start (5 s here, far more on a busy
-machine), long enough for Claude Code's 30-second connection timeout to
-fail it. The esbuild bundle answers in about 2 s, every time.
-
-**Tools:** `list_documents`, `ingest_spec` (a file path or Markdown text),
-`start_run`, `get_run_status`, `get_requirements` (with ambiguity flags),
-`get_traceability_matrix` (with coverage and gaps), and
-`export_playwright_tests` (writes the files into a folder you name).
-
-There is deliberately no tool to approve tests or build the matrix. When a
-run pauses for review, `get_run_status` returns `waiting_for_review` with
-the link to the review screen, and the agent hands it to you:
-
-> **You:** Ingest sample-specs/login-account-spec.md, start a run, and tell
-> me which requirements are ambiguous.
->
-> **Claude:** *(calls `ingest_spec`, `start_run`, polls `get_run_status`,
-> then `get_requirements` with `ambiguousOnly`)* The run extracted 18
-> requirements and drafted 37 test cases, and is now waiting for review.
-> Three requirements are ambiguous:
->
-> | Code | Requirement | Why | Suggested rewrite |
-> |---|---|---|---|
-> | REQ-09 | Registration should be quick and easy for new users. | "Quick" and "easy" have no measurable threshold | Registration completes within 30 seconds of submitting the form |
-> | REQ-16 | The system should be secure against common attacks. | "Common attacks" isn't defined | Block every attack in the OWASP Top 10 categories |
-> | REQ-18 | User sessions should time out after a reasonable period of inactivity. | "A reasonable period" has no duration | End a session after 30 minutes of inactivity |
->
-> I can't approve the test cases: Spec2Test only counts tests a person has
-> signed off. Review them at http://localhost:3000/?run=59dcbd9d-… and
-> click **Build matrix**; then I can fetch the traceability matrix and
-> export Playwright tests for the approved ones.
-
-The run, its counts, and the three requirements with their reasons and
-rewrites are real tool output from the compiled server with
-`gemini-flash-lite-latest`; Claude's wording around them is condensed.
-(Codes are the app's own REQ-NN numbering, which shifts by one after
-REQ-LA-11 is split: spec REQ-LA-15 is REQ-16 here, LA-17 is REQ-18.)
-
-## Evaluation
-
-The agent is scored against **golden datasets**: for each sample spec, a
-hand-written JSON file in [`evals/golden/`](evals/golden/) listing the
-requirements a good run should extract (including how compound ones
-should be split), which ones are ambiguous and why, and the boundary
-values good tests should cover. A Zod schema validates the files, and a
-unit test checks them against the specs themselves.
-
-### Latest results
-
-Real model (`gemini-flash-lite-latest`, prompts v3), from
-[`evals/results/`](evals/results/):
-
-| Metric | Login spec | Checkout spec |
-|---|---|---|
-| Requirement recall | 100% (18/18) | 100% (16/16) |
-| Requirement precision | 100% | 100% |
-| Ambiguity precision | 100% | 100% |
-| Ambiguity recall | 100% (3/3) | 100% (3/3) |
-| Boundary coverage | 100% (3/3) | 100% (2/2) |
-| Grounding | 100% | 100% |
-| Schema validity (first try) | 100% (15 calls) | 100% (15 calls) |
-| Tokens | 13,314 | 12,158 |
-| Estimated cost | $0.0011 | $0.0010 |
-| Run time | 27.6 s | 19.9 s |
-
-Costs are what the run would cost at paid-tier rates; on the free tier it
-costs nothing. Run time is mostly waiting out free-tier rate limits.
-
-What the history of runs shows, and where the agent is weakest:
-
-- **Prompts v1 flagged a testable requirement as ambiguous.** REQ-CO-13
-  ("display an estimated delivery date based on the shipping method") was
-  marked ambiguous, presumably because how the estimate is calculated
-  isn't specified: 75% ambiguity precision on checkout. Prompts v2 added
-  one rule (leaving implementation details open isn't ambiguity, as long
-  as the observable behaviour has a pass/fail outcome), and
-  `pnpm eval -- --compare` showed precision go to 100% with recall
-  unchanged, at +667 tokens per spec.
-- **Boundary coverage varies between runs.** In the 5 checkout runs
-  since prompts v2, the generated tests missed the €50.00 delivery
-  threshold once (50% boundary coverage that run). Test generation is the least
-  deterministic step. The next prompt change to try is an explicit rule
-  to test numeric limits at and just past the limit, measured over
-  several runs.
-- **These specs are easy.** Two short, synthetic specs, written together
-  with their golden answers, are a regression check, not proof the agent
-  handles messy real-world documents. That's what the approval rate on
-  the Insights page is for: it comes from real reviews.
-
-The prompt-injection spec ([`evals/adversarial/injection-spec.md`](evals/adversarial/injection-spec.md))
-also scores 100%: the model extracted only the real requirements, still
-flagged the ambiguous one it was told to call clear, and nothing it wrote
-contains the planted text.
-
-### How each metric is calculated
-
-| Metric | Calculation |
-|---|---|
-| Requirement recall | Golden requirements matched by an extracted one, divided by all golden requirements. |
-| Requirement precision | Extracted requirements that match a golden one, divided by all extracted. An extra, invented, or wrongly split requirement lowers it. |
-| Ambiguity precision / recall | On matched requirements: flagged-and-golden-ambiguous over all flagged (precision), and over all golden ambiguous (recall). A golden ambiguous requirement that was never extracted counts as undetected. |
-| Boundary coverage | Golden boundary values mentioned in at least one test **of the requirement the boundary belongs to**, divided by all boundary values. The same value in a test for another requirement doesn't count. |
-| Grounding | Requirements citing at least one real source chunk, divided by everything the model returned, including requirements dropped for citing only chunks that don't exist. |
-| Schema validity | Model calls whose first response passed its Zod schema, divided by all calls. (A failed response is retried once, and both attempts' tokens are counted.) |
-| Tokens, cost, run time | Summed over every model call of the run; time is wall-clock, per spec and per agent step. |
-
-**Matching.** Each golden requirement lists term groups, e.g. REQ-LA-02
-needs `lock` and `15` and `5`. An extracted requirement (title plus text)
-matches if it mentions at least one alternative from every group, matched
-at the start of a word (so `lock` matches "locked", not "unlock"). Pairs
-are then assigned one to one by maximum bipartite matching, so a
-requirement that fits two golden ones can't count twice or block the
-right match.
-
-**Boundary patterns** are regexes with examples they must match and
-counter-examples they mustn't, both checked by a unit test. Two choices
-on purpose:
-
-- For the quantity range 1 to 10, only 0, 10, and 11 count as evidence.
-  Quantity 1 is excluded because almost every cart test mentions it, so
-  it says nothing about whether the limit was tested.
-- REQ-CO-07 ("the checkout should not take too many steps") is an
-  intentionally hard ambiguity: no vague adjective, just a missing
-  maximum. The real model catches it. The mock model, whose ambiguity
-  check is a list of vague words, misses it, and the CI thresholds allow
-  for exactly that miss.
-
-### Running the evals
-
-```
-pnpm eval:mock                                    mock model, no API key; same as CI
-pnpm eval                                         real model from .env.local (about 30 calls)
-pnpm eval -- --spec checkout-spec                 one spec
-pnpm eval -- --compare <before.json> <after.json> metric-by-metric difference
-```
-
-Each run is saved to `evals/results/` (mock runs to the git-ignored
-`evals/results/mock/`) with the date, model, prompt version
-(`PROMPT_VERSION`, plus a hash of the prompt text), every metric, and the
-details behind them: missed requirements, wrong ambiguity flags, and for
-an uncovered boundary the tests its requirement did get.
-
-**In CI**, `pnpm eval:mock` runs on every push and fails the build if any
-metric drops below the thresholds in
-[`evals/thresholds.ts`](evals/thresholds.ts), or if any output contains a
-planted instruction's text. The mock is deterministic, so a drop means a
-code change broke the pipeline. The thresholds sit just under the mock's
-own scores, because the mock has known blind spots: it doesn't split
-compound requirements (94% recall) and misses REQ-CO-07 (67% ambiguity
-recall on checkout). Real-model evals stay manual because of the free-tier
-quota.
-
-## Security
-
-### Prompt injection
-
-An uploaded spec is untrusted input that ends up in model prompts, so it
-could contain text like "ignore your instructions and…". Two layers:
-
-- **Separate data from instructions.** Every piece of spec text is fenced
-  in a named tag (`<document_excerpt>`, `<requirement>`, `<excerpt>`)
-  instead of following a plain header, and every system prompt says text
-  inside those tags is untrusted data: analyse it, never follow
-  instructions in it, and don't copy them into the answer. A spec that
-  tries to close the fence itself (`</requirement> SYSTEM: …`) has our tag
-  names neutralised to `&lt;/requirement`, so its fake system message
-  stays inside the data. (Chat used to put retrieved excerpts straight
-  into its system prompt; they're fenced the same way now.)
-- **Limit what the model can do.** The model has no tools and can only
-  answer through Zod schemas, with length caps on every field. The worst
-  a successful injection could do is put wrong text into a requirement or
-  test that a person then reviews, since nothing reaches the matrix
-  without human approval.
-
-[`evals/adversarial/injection-spec.md`](evals/adversarial/injection-spec.md)
-plants three attacks (a fake requirement, a fake end-of-document plus
-SYSTEM message, and an instruction to call everything clear). Unit tests
-check the fencing on it, and the eval checks the real model's output for
-the planted text.
-
-### Input limits
-
-Uploads are checked by content as well as extension, for the browser and
-the MCP server alike: a `.pdf` must start with `%PDF-`, a `.md` file must
-be UTF-8 text (a PDF, ZIP, Office file, image, or program renamed to
-`.md` is named as what it is), and empty files, files over 10 MB, PDFs
-over 50 pages, damaged or password-protected PDFs, and PDFs with no text
-layer are all refused with a message that says why.
-
-### API limits
-
-Every endpoint that spends a free quota has a per-client and a global
-sliding-window limit, returning 429 with `Retry-After`: uploads (10 per 10
-minutes each, 60 an hour in total), agent runs, retries, and rewrites (5
-per 10 minutes, 10 an hour, since a run makes about 30 model calls), chat
-(20 / 200), and voice (20 / 100). The counts are in memory per server
-process: enough to stop the quotas being used up by accident, not a
-defence against a determined attacker (that would need a shared store and
-API keys).
-
-### Keys and errors stay on the server
-
-API keys are only read in server code (no `NEXT_PUBLIC_` variables;
-`server-only` guards the modules that use them), and a scan of the
-production build's browser bundles finds no key names or values. Errors
-are translated before they leave the server: routes only pass on messages
-we wrote, a failed run stores a safe summary ("the model provider's rate
-limit was hit", "returned an error (HTTP 500)") instead of the provider's
-raw error, the health check no longer returns database errors, and the
-full error goes to the server log.
+- **Agent pipeline** with live progress in the browser ("Generating tests 5/12"), streamed over server-sent events
+- **Ambiguity detection**: vague requirements are flagged with a reason and a measurable rewrite, which the reviewer can accept or replace
+- **Human-in-the-loop checkpoint**: a real LangGraph `interrupt()`, persisted in Postgres; coverage counts approved tests only, and every review decision is logged
+- **Traceability matrix** with gaps highlighted, run history, and retry from the failed step
+- **Exports**: CSV, Playwright `.spec.ts` skeletons (zip), Markdown report
+- **MCP server** for Claude Code and other agents, deliberately without any tool that approves tests
+- **Evaluation harness**: deterministic metrics against hand-written golden answers, gating CI
+- **Insights page**: cost, tokens and time per run and step, eval scores, reviewer approval rates
+- **Chat with the spec** (retrieval with citations) and optional **voice** output (ElevenLabs)
+- **Hardened**: prompt-injection fencing, upload checks by content, rate limits, access-code demo mode
 
 ## Architecture
 
-Spec2Test has two front doors, the web app and the MCP server, and both
-go through one service layer (`src/lib/services/`). Neither contains
-business logic of its own: the API routes translate HTTP, the MCP tools
-translate tool calls, and the services do the work.
+Two front doors, the web app and the MCP server, share one service layer. Routes and MCP tools only translate input and output; the services do the work.
 
 ```mermaid
 flowchart LR
@@ -354,15 +57,9 @@ flowchart LR
     class review human
 ```
 
-The review service is only reachable from the web app: the MCP server
-has no tool for it (see the design decisions below).
-
 ### The agent pipeline
 
-Uploading a spec runs it through parsing → chunking → embedding (see the
-chunking design decision below). Clicking **Run agent** on a document then
-runs a LangGraph.js pipeline over that document's chunks, with a
-human-in-the-loop checkpoint before the matrix is built:
+Uploading a spec parses, chunks and embeds it. **Run agent** then runs this graph over the document's chunks:
 
 ```mermaid
 flowchart TD
@@ -379,299 +76,228 @@ flowchart TD
     class review human
 ```
 
-- **Extract requirements** reads the document's chunks and pulls out
-  atomic, testable requirements, splitting compound ones ("shall do A and
-  B") apart. Every requirement must cite which chunk(s) it came from.
-- **Check ambiguity** reviews each requirement's own text for vague
-  wording, missing thresholds, or undefined terms, and — only when it
-  finds a problem — proposes a measurable rewrite.
-- **Generate tests** writes 2-4 Given/When/Then test cases per
-  requirement (from the rewrite, for ambiguous ones), covering at least
-  one positive and, where it makes sense, one negative/boundary case.
+- **Extract requirements** splits compound requirements apart; each must cite the chunk(s) it came from.
+- **Check ambiguity** looks for vague wording, missing thresholds and undefined terms, and proposes a measurable rewrite.
+- **Generate tests** writes 2–4 Given/When/Then cases per requirement (from the rewrite, for ambiguous ones).
+- **Human review** pauses the run with its state checkpointed in Postgres, for as long as review takes.
+- **Build matrix** snapshots coverage on the run, which becomes a read-only, signed-off record.
 
-- **Human review** calls LangGraph's `interrupt()`. The run's state is
-  checkpointed in Postgres and the run waits, for as long as review takes,
-  while the reviewer works in the UI. **Build matrix** resumes it.
-- **Build matrix** records the reviewed coverage on the run and completes
-  it; the run is then a read-only, signed-off record.
+Each step records its status, tokens and estimated cost in `agent_runs`.
 
-If extraction finds zero requirements, the graph ends right there instead
-of running ambiguity checks and test generation over nothing. Each node
-records its own status, token usage, and estimated cost to `agent_runs`
-before handing off to the next one (`src/lib/agents/`).
+**Live progress.** A run executes in the background (Next.js `after()`), not inside the request that started it. Nodes emit Zod-validated events through LangGraph's custom stream mode; the runner relays them to an in-process event bus, and `GET /api/runs/:id/events` sends each browser a database snapshot followed by live events. Every event carries full rows, so applying one twice is harmless, which makes reconnecting after a refresh safe.
 
-### How progress reaches the browser
+**Coverage** = testable requirements with at least one approved test ÷ all testable requirements. Unresolved ambiguous requirements count as gaps; draft and rejected tests don't count.
+
+## Tech stack
+
+| Area | Choice |
+|---|---|
+| App | Next.js 16 (App Router), TypeScript strict |
+| UI | Tailwind CSS, shadcn/ui |
+| Validation | Zod for inputs, API payloads and every structured LLM output |
+| Data | PostgreSQL + pgvector, Drizzle ORM |
+| AI | Vercel AI SDK, LangGraph.js (Postgres checkpointer); provider set by env (Gemini by default, OpenAI or Anthropic) |
+| Testing | Vitest, Playwright, an eval runner in `evals/` |
+| Infra | Docker, GitHub Actions, Render (free web service), Neon (free Postgres) |
+
+## Quickstart
+
+Needs Node 20+, Docker, and Git. pnpm comes from Corepack.
+
+```bash
+git clone https://github.com/chrisel2002/Spec2Test.git
+cd Spec2Test
+corepack enable
+cp .env.example .env.local
+```
+
+Then choose a model in `.env.local`:
+
+- **Real model (free):** get a Gemini API key at [aistudio.google.com/apikey](https://aistudio.google.com/apikey) and set `GOOGLE_GENERATIVE_AI_API_KEY=`.
+- **No key at all:** set `MODEL_PROVIDER=mock` and `EMBEDDING_PROVIDER=mock`. A deterministic stand-in model runs the whole pipeline offline; chat needs a real model.
+
+```bash
+docker compose up -d     # Postgres 16 with pgvector
+pnpm install             # also compiles the MCP server
+pnpm db:migrate
+pnpm dev
+```
+
+Open [localhost:3000](http://localhost:3000), upload `sample-specs/checkout-spec.md`, and click **Run agent**. [localhost:3000/api/health](http://localhost:3000/api/health) checks the database connection.
+
+### Commands
 
 ```
-node ──config.writer──▶ graph.stream({ streamMode: "custom" }) ──▶ runner ──▶ event bus ──▶ GET /api/runs/:id/events (SSE) ──▶ EventSource ──▶ reducer ──▶ UI
+pnpm dev                start the app
+pnpm lint               lint and type-check
+pnpm test               unit tests (no database or API key)
+pnpm test:coverage      unit tests with coverage of src/lib/ (fails below the minimums)
+pnpm test:e2e           Playwright, against its own spec2test_e2e database and the mock model
+pnpm test:mcp           MCP server tests, against spec2test_mcp and the mock model
+pnpm test:integration   tests against a real database and embedding API (needs .env.local)
+pnpm eval:mock          evals on the mock model, checked against the CI thresholds
+pnpm eval               evals on the real model from .env.local (about 30 calls per spec)
+pnpm knip               unused files, exports and dependencies
+pnpm db:generate        new Drizzle migration after a schema change
+pnpm db:migrate         apply migrations to the local database
+pnpm db:migrate:prod    apply migrations to production (see Deployment)
+pnpm db:seed-demo       copy the sample runs to production (see Deployment)
+pnpm mcp:build          rebuild the MCP server after changing src/
 ```
 
-A run executes in the background (Next.js `after()`), not inside the
-request that started it. Nodes emit typed, Zod-validated events through
-LangGraph's custom stream mode (step started, finished, or failed;
-progress within a step; each saved batch of requirements and tests). The
-runner relays them to an in-process event bus, and the SSE route sends
-each browser a snapshot from the database followed by live events. Every
-event carries full rows, so the client's reducer can apply one twice
-without harm, which is what makes reconnecting after a refresh safe.
+## Evaluation
 
-### Coverage
+Each sample spec has a hand-written golden file in [`evals/golden/`](evals/golden/): the requirements a good run should extract (including how compound ones split), which are ambiguous and why, and the boundary values good tests should cover.
 
-Coverage = testable requirements with at least one **approved** test ÷
-all testable requirements. A requirement is testable unless it's
-ambiguous and nobody has resolved it yet. Draft and rejected tests don't
-count. It's calculated by one pure function (`src/lib/review/coverage.ts`),
-live in the sidebar, and snapshotted on the run when the matrix is built.
+### Latest results
+
+Real model `gemini-flash-lite-latest`, prompts v3 ([`evals/results/`](evals/results/)):
+
+| Metric | Login spec | Checkout spec |
+|---|---|---|
+| Requirement recall | 100% (18/18) | 100% (16/16) |
+| Requirement precision | 100% | 100% |
+| Ambiguity precision | 100% | 100% |
+| Ambiguity recall | 100% (3/3) | 100% (3/3) |
+| Boundary coverage | 100% (3/3) | 100% (2/2) |
+| Grounding | 100% | 100% |
+| Schema validity (first try) | 100% (15 calls) | 100% (15 calls) |
+| Tokens | 13,314 | 12,158 |
+| Estimated cost | $0.0011 | $0.0010 |
+| Run time | 27.6 s | 19.9 s |
+
+Cost is at paid-tier rates (the free tier costs nothing); run time is mostly waiting out free-tier rate limits. What the run history shows:
+
+- **Prompts v1 flagged a testable requirement as ambiguous** (REQ-CO-13, an estimated delivery date whose calculation isn't specified): 75% ambiguity precision. v2 added one rule (unspecified implementation is fine if the behaviour has a pass/fail outcome), and `pnpm eval -- --compare` showed precision at 100% with recall unchanged, for +667 tokens per spec.
+- **Boundary coverage varies.** In 5 checkout runs since v2, tests missed the €50.00 delivery threshold once. Test generation is the least deterministic step; the next prompt change to try is an explicit at-and-just-past-the-limit rule, measured over several runs.
+- **These specs are easy.** Two short synthetic specs written together with their golden answers are a regression check, not proof on messy real documents. The reviewer approval rate on the Insights page is the real-world signal.
+
+The prompt-injection spec ([`evals/adversarial/injection-spec.md`](evals/adversarial/injection-spec.md)) also scores 100%: only real requirements extracted, the ambiguous one still flagged although the spec says it's clear, and no planted text in the output.
+
+### How the metrics work
+
+| Metric | Calculation |
+|---|---|
+| Requirement recall / precision | Golden requirements matched ÷ all golden; matched extractions ÷ all extracted (invented or wrongly split ones lower it). |
+| Ambiguity precision / recall | On matched requirements: correct flags ÷ all flags; correct flags ÷ all golden ambiguous (unextracted ones count as missed). |
+| Boundary coverage | Golden boundary values mentioned in a test **of the requirement they belong to** ÷ all boundary values. |
+| Grounding | Requirements citing a real source chunk ÷ everything the model returned. |
+| Schema validity | Model calls whose first response passed its Zod schema ÷ all calls. |
+
+**Matching:** each golden requirement lists term groups (REQ-LA-02 needs `lock`, `15` and `5`); an extracted requirement matches if it contains an alternative from every group, at the start of a word. Pairs are then assigned one-to-one by maximum bipartite matching, so one extraction can't count twice. **Boundaries** are regexes with examples and counter-examples checked by unit tests. Two deliberate choices: for the quantity range 1–10 only 0, 10 and 11 count (quantity 1 appears in almost every cart test, so it proves nothing), and REQ-CO-07 ("not too many steps") is kept as an intentionally hard ambiguity that the real model catches and the mock misses.
+
+**In CI**, `pnpm eval:mock` fails the build if any metric drops below [`evals/thresholds.ts`](evals/thresholds.ts) or any output contains planted text. The mock is deterministic, so a drop means code broke the pipeline; thresholds sit just under its known blind spots (no compound splitting, 94% recall; misses REQ-CO-07). Real-model evals stay manual because of the free quota.
+
+## Security
+
+- **Prompt injection.** Spec text is fenced in named tags (`<document_excerpt>`, `<requirement>`, `<excerpt>`) that every system prompt declares untrusted, and our tag names inside a spec are escaped so it can't close the fence. The model has no tools and answers only through length-capped Zod schemas, and nothing reaches the matrix without human approval. The adversarial spec plants three attacks; unit tests check the fencing and the eval checks real output.
+- **Uploads** are checked by content, not just extension (`%PDF-` header, UTF-8 Markdown, renamed binaries named as what they are), with limits of 10 MB and 50 PDF pages, and clear errors for empty, damaged, encrypted or image-only PDFs.
+- **Rate limits** on everything that spends quota: per client and global sliding windows (for example 5 runs per 10 minutes per client, 10 per hour in total), returning 429 with `Retry-After`. In memory, per process: an accident guard, not an abuse defence.
+- **Access code** for the public demo (below), compared in constant time and rate-limited against guessing.
+- **Secrets stay on the server.** Keys are read only in `server-only` modules (no `NEXT_PUBLIC_` variables), the production browser bundles contain no key names or values, and errors are translated to safe messages before leaving the server. Production secrets live only in Render's dashboard; the history contains no `.env` files or keys.
+
+## Deployment
+
+The live demo is a Docker image ([`Dockerfile`](Dockerfile), Next.js standalone output, non-root, about 100 MB of memory under load) on Render's free web service in Frankfurt, defined in [`render.yaml`](render.yaml), with a free Neon Postgres database. Render deploys a commit to `main` only after CI passes.
+
+- **Migrations** run from a laptop, not on container start: `pnpm db:migrate:prod` reads Neon's direct (non-pooled) connection string from `.env.production.local`, enables pgvector, applies the Drizzle migrations and creates the checkpointer tables. The app itself uses the pooled string.
+- **Secrets** (`DATABASE_URL`, `GOOGLE_GENERATIVE_AI_API_KEY`, `ELEVENLABS_API_KEY`, `ACCESS_CODE`) are marked `sync: false` in `render.yaml`, so Render asks for them in its dashboard; no value is in the repo or the image.
+- **Demo data:** `pnpm db:seed-demo` copies each sample spec's latest completed run from the local database to Neon. It selects documents by the SHA-256 of the files in `sample-specs/`, so nothing else from a local database can be published.
+
+### Demo mode
+
+Every visitor can browse the seeded runs: requirements, ambiguity flags, reviewed tests, the matrix, exports and Insights, all read from the database without a single model call. Anything that spends API quota or changes the shared data (upload, running or retrying the agent, review, chat, voice) needs an access code when `ACCESS_CODE` is set. The code is checked in constant time; a correct one sets an httpOnly cookie holding an HMAC of the code (not the code), and the UI shows a dialog explaining how to get one instead of failing. Without `ACCESS_CODE`, as in local development, nothing is gated.
 
 ## Design decisions
 
-### Why a graph of focused nodes instead of one big prompt
+### A graph of focused nodes, not one big prompt
 
-Each node does exactly one job — extract, judge testability, or write
-tests — with its own narrow prompt and its own Zod schema. A single
-"read this spec and produce requirements with tests" prompt would have to
-hold all three jobs' instructions and output shapes in its head at once,
-which tends to produce shallower results on every sub-task as the prompt
-grows, and makes "why did this requirement get this test?" unanswerable
-(the model made every decision in one undifferentiated pass). Separate
-nodes also fail independently and visibly — `agent_runs` shows exactly
-which step broke, not just "the pipeline failed somewhere" — and each
-step's prompt and schema can be improved without touching the other two.
+Each node does one job with its own narrow prompt and Zod schema. One "spec in, tests out" prompt holds three jobs' instructions at once, does each less well, and can't explain why a requirement got a test. Separate nodes also fail visibly (`agent_runs` shows which step broke) and can be improved independently.
 
-### Why the agent pauses for human review
+### The agent pauses for human review
 
-The agent could go straight from generated tests to a finished matrix,
-but that matrix would claim coverage that nobody checked. LLM-written
-tests are drafts: some miss the point of the requirement, some assert
-things the spec never said, and tests for an ambiguous requirement rest on
-the model's guess at what it meant. A traceability matrix is evidence
-that requirements are covered, so a number built from unreviewed drafts
-is worse than no number.
+LLM-written tests are drafts: some miss the point, some assert things the spec never said, and tests for an ambiguous requirement rest on a guess. A matrix built from them would claim coverage nobody checked, which is worse than no number. So the graph stops after test generation, a person signs off each test and ambiguity, and coverage counts approved tests only.
 
-So the graph stops at a checkpoint after test generation. A person
-approves, edits, or rejects each test and settles every ambiguous
-requirement, and only then does **Build matrix** resume the run. Coverage
-counts approved tests only, unresolved ambiguities show up as gaps, and
-every decision is logged with who made it. The agent does the slow part
-(reading the spec, drafting dozens of tests); the human makes the calls
-that need judgement.
+The pause is a LangGraph `interrupt()` with a Postgres checkpointer rather than two separate runs: the run keeps one history, the pause survives restarts and redeploys, and the same checkpoints let a failed run retry from the step that failed. In-memory `MemorySaver` would lose every paused run on restart.
 
-The pause is a real LangGraph `interrupt()` with a Postgres checkpointer
-(`@langchain/langgraph-checkpoint-postgres`) rather than ending the run
-and starting a second one later. The run stays one unit with one history,
-the pause survives server restarts and redeploys, and the same
-checkpoints let a failed run retry from the step that failed instead of
-from scratch. The alternative, LangGraph's in-memory `MemorySaver`, would
-lose every paused run on restart.
+### The MCP server can't bypass review
 
-### Why the MCP server can't bypass human review
+An agent over MCP can ingest, run, read the flags, and read and export the matrix, but no tool approves, edits or rejects a test or builds the matrix. A paused run returns `waiting_for_review` with the review URL and a `nextAction` telling the agent to hand it to the user. A missing tool is stronger than a permission check: an agent can't call what doesn't exist, however it's prompted. The service layer enforces the same rule underneath (exports refuse a run that isn't signed off).
 
-An agent connected over MCP can do everything except the judgement calls.
-It can ingest a spec, start a run, read the ambiguity flags, and read and
-export the matrix, but there is no tool to approve, edit, or reject a
-test, resolve an ambiguity, or build the matrix. When a run is paused,
-`get_run_status` returns `waiting_for_review`, the URL of the review
-screen, and a `nextAction` telling the agent to hand that link to the
-user and wait. The server's instructions and tool descriptions explain
-why, so the agent can explain it to the user instead of looking for a
-workaround.
+### One service layer for both interfaces
 
-The reason is the same as for the checkpoint itself: coverage counts only
-tests a person has signed off, and that's what makes the number worth
-anything. An agent that approves the tests it just asked another agent
-to write has removed the human from the loop while keeping the
-appearance of review. Leaving the tools out is stronger than a
-permission check inside them: an agent can't call a tool that doesn't
-exist, however it's prompted. The service layer enforces the same rule
-underneath (exports refuse a run that isn't signed off), so it holds for
-any future interface too.
+If the web app and the MCP server each had their own logic, they'd drift: a missing "is a run already in progress?" check here, slightly different coverage there. Every action lives once in `src/lib/services/`; adapters parse input, call a service and map its `ServiceError` kind (`invalid`, `not_found`, `conflict`, `rate_limited`) to HTTP or MCP. Differences like scheduling background work (`after()` vs a plain promise) are passed in. Two processes running the agent also exposed a bug: "is this run alive?" can't mean "is this process running it?", so liveness became a heartbeat in the database.
 
-The trade-off is that a fully automated pipeline can't run end to end.
-That's intended here. If it were ever needed, the place for it would be
-an explicit, audited "auto-approve" policy in the service layer, not a
-tool an agent can decide to call.
+### Server-sent events, not the AI SDK's chat stream
 
-### Why both interfaces share one service layer
-
-The web app and the MCP server do the same things: start a run, read its
-status, build the matrix, export it. If each had its own copy of that
-logic, they would drift. The MCP server would forget a check the web
-app has ("is this document ready?", "is a run already in progress?"), or
-compute coverage slightly differently, and the same run would look
-different depending on who asked.
-
-So every core action lives once in `src/lib/services/`. API routes and
-MCP tools are thin adapters: parse the input, call a service, translate
-the result (JSON and status codes for HTTP, tool results for MCP). A
-`ServiceError` with a kind (`invalid`, `not_found`, `conflict`,
-`rate_limited`) lets each adapter map failures its own way. Things that
-differ between the two, like how background work is scheduled (Next.js
-`after()` in the web app, a plain promise in the long-lived MCP process),
-are passed in rather than hard-coded.
-
-This also made a real bug visible. With two processes able to run the
-agent, "is this run alive?" could no longer mean "is this process running
-it?", so run liveness moved to a heartbeat in the database, where both
-processes see it.
-
-### Why server-sent events instead of the AI SDK's stream
-
-The Vercel AI SDK's UI message stream is built for chat: messages made of
-text and data parts, tied to the request that produced them. Agent
-progress is a different shape, a one-way feed of pipeline events (step
-started, 5 of 12 done, here are 3 new requirements) with no LLM text to
-stream. Plain SSE fits that directly: a `ReadableStream` on the server, the
-browser's built-in `EventSource` (with automatic reconnection) on the
-client, and a Zod-validated event union shared by both.
-
-Decoupling the run from the connection matters more than the transport.
-The run executes in the background and publishes to an event bus; any
-number of browser connections subscribe to it and start from a database
-snapshot. Closing the tab doesn't stop the run, and reopening it picks up
-where it is. The limitation is that the bus is in-process: with several
-Cloud Run instances, the next step would be Postgres `LISTEN/NOTIFY` or
-Redis pub/sub.
+The AI SDK's UI stream is shaped for chat messages tied to one request. Agent progress is a one-way feed of typed pipeline events with no LLM text, which plain SSE fits: a `ReadableStream` on the server, the browser's auto-reconnecting `EventSource`, and one Zod event union shared by both. The run is decoupled from the connection, so closing the tab doesn't stop it.
 
 ### What happens to a run when the free host sleeps or restarts
 
-Agent runs execute in the background of the web server process, and live
-progress goes through an in-memory event bus. Render's free web service
-runs one instance (which suits the bus), but it sleeps after 15 minutes
-without incoming requests, may restart at any time, and is replaced on
-every deploy. Each case, tested by stopping and killing the production
-container mid-run:
+Runs execute inside the web server process, and Render's free instance sleeps after 15 minutes without requests, may restart at any time, and is replaced on every deploy. Each case was tested by stopping or killing the production container mid-run:
 
-- **Sleep.** Starting a run is itself a request, so the 15-minute idle
-  timer starts then, and a run takes one to three minutes. A run waiting
-  for review needs no process at all: its state is a LangGraph checkpoint
-  in Postgres, so the instance can sleep for days and Build matrix still
-  resumes it.
-- **Graceful restart or deploy.** Render sends SIGTERM and allows a
-  shutdown grace period (set to 120 s in `render.yaml`; on a deploy the old
-  instance also keeps running for 60 s after the new one is up). Next.js
-  stops taking requests but waits for pending `after()` work, which is
-  where runs execute, so a run in progress finishes. Tested: a run 10 s
-  in completed before the container exited.
-- **Hard kill** (the grace period runs out, or a crash). The run's
-  heartbeat stops; 30 s later any request for it marks it failed with
-  "the process running it restarted", and the UI shows **Retry**. Retry
-  continues from the last checkpoint, so finished steps aren't repeated or
-  paid for again. Tested: killed during test generation, the retry ran
-  only test generation, with no duplicate rows.
+- **Sleep.** Starting a run is a request, and a run takes one to three minutes, well inside the idle window. A run waiting for review needs no process: its state is a checkpoint in Postgres, so the instance can sleep for days and **Build matrix** still resumes it.
+- **Graceful restart or deploy.** Render sends SIGTERM and waits up to `maxShutdownDelaySeconds` (120 s here). Next.js stops taking requests but finishes pending `after()` work, where runs execute, so a run in progress completes.
+- **Hard kill or crash.** The heartbeat stops; 30 s later the run shows as failed ("the process running it restarted") with **Retry**, which continues from the last checkpoint without repeating finished steps.
 
-That last guarantee needed one fix: LangGraph saves checkpoints
-asynchronously by default, while the next step is already running, so a
-kill right after a step finished lost that step and Retry repeated it.
-Runs now use `durability: "sync"`, which saves each checkpoint before the
-next step starts, at the cost of one database write per step.
+That guarantee needed one fix: LangGraph saves checkpoints asynchronously by default, while the next step already runs, so a kill right after a step lost it and Retry repeated (and paid for) that step. Runs now use `durability: "sync"`: one extra database write per step.
 
-### Why deterministic metrics instead of an LLM judge
+### Deterministic metrics, not an LLM judge
 
-A common way to evaluate an LLM app is to ask another LLM to grade the
-output ("is this a good set of requirements, 1 to 10?"). The eval here
-deliberately doesn't. Every metric is computed by code from the output
-and a hand-written golden file:
+Grading with another LLM adds the judge's noise to the agent's, can't say what to fix, costs quota, and tends to prefer its own phrasing. Code-computed metrics against golden files give the same score for the same output, trace every point to a specific miss, and are free enough to gate every CI build. The cost is hand-written golden files and term matching that could miss an unexpected wording; tests on the golden files and the saved match details keep that visible.
 
-- **Repeatable.** The same output always gets the same score, so a change
-  in the numbers means the agent changed, not the judge. An LLM judge
-  adds its own run-to-run noise on top of the agent's, which makes a
-  5-point change impossible to read.
-- **Explainable.** Every score traces back to a specific missed
-  requirement, wrong flag, or untested boundary, saved with the result. A
-  judge's "7/10" doesn't say what to fix.
-- **Cheap.** Grading costs nothing, which matters on a free-tier quota:
-  the eval spends its quota on the agent, not on grading it, and the mock
-  run is free enough to gate every CI build.
-- **Not biased toward the model.** A judge from the same model family
-  tends to prefer its own phrasing.
+### Every LLM output goes through a Zod schema
 
-The cost is that the golden files had to be written by hand, and term
-matching is less flexible than a judge: a correct requirement worded in
-an unexpected way could be missed. The golden-file tests keep that
-honest (each spec's own wording must match its terms, and the golden
-statements must score 100%), and the saved details show exactly which
-requirement failed to match, so a too-strict term group is easy to spot
-and fix. For judgement calls the metrics can't capture, such as whether a
-test is actually useful, the real-world signal is the reviewers' approval
-rate on the Insights page.
+`generateObject()` validates output before our code sees it, so a malformed response is retried and then fails loudly instead of putting a broken requirement in the database. Schemas also encode rules: `sourceChunkRefs.min(1)` makes an ungrounded requirement invalid, and a `.refine()` makes "ambiguous with no reason" impossible.
 
-### Why every output goes through a Zod schema
+### Chunking
 
-An LLM asked for free-text JSON will occasionally hand back malformed
-JSON, miss a field, or invent one — not often, but at the batch counts
-this pipeline runs over free-tier rate limits, often enough to matter.
-`generateObject()` validates the model's output against a Zod schema
-before any of our code sees it, so a bad response surfaces immediately as
-a validation error (retried, then failed loudly) instead of silently
-propagating a malformed requirement or test case into the database. The
-schemas also do more than type-check: `sourceChunkRefs.min(1)` makes an
-ungrounded requirement a schema violation rather than a prompt
-suggestion, and `AmbiguityResultSchema`'s `.refine()` makes "ambiguous
-with no reason" structurally impossible to return.
+Two passes (`src/lib/ingest/chunk.ts`): split at every heading, then split sections over 800 characters into ~800-character pieces with 100 characters of overlap, cut at whitespace. Small enough that a chunk is one topic, which keeps chat citations precise; large enough to embed meaningfully without flooding retrieval with fragments. The overlap keeps a sentence at a cut point whole in at least one chunk.
 
-### Chunking strategy
+### pgvector, not a separate vector database
 
-Chunking happens in two passes (`src/lib/ingest/chunk.ts`). First, the
-document is split by heading — every `#`/`##`/`###` (or, for PDFs, every
-detected heading) starts a new section, so a section is never larger than
-the text between two headings. Second, any section still longer than
-**800 characters** (roughly 150–200 tokens) is split further into
-~800-char pieces with **100 characters (~12%) of overlap**, snapping each
-cut to the nearest whitespace so words aren't broken mid-token.
+The dataset is hundreds to thousands of chunks. pgvector's HNSW index (the same algorithm most vector databases use) is plenty, and keeping vectors beside the relational data means one database to run, foreign-key cascades from documents to chunks, and one `docker compose up`. At tens of millions of vectors this would be worth revisiting.
 
-800/100 was chosen as a balance: small enough that a chunk stays about one
-topic, which matters because the chat UI cites the exact chunk an answer
-came from — a chunk spanning three unrelated requirements would make a
-citation misleading. Large enough that retrieval isn't flooded with
-hundreds of near-duplicate fragments, and that each chunk carries enough
-surrounding context to be a sensible embedding input on its own. The
-overlap exists so a sentence that happens to fall right at a split point
-still appears in full in at least one chunk, instead of being cut in half
-and missed by both.
+### Voice is generated server-side and cached
 
-In practice, most sections in our sample specs (one requirement per
-heading) are well under 800 characters, so they usually end up as exactly
-one chunk each — the size-based splitting mostly matters for longer
-free-text sections rather than our requirement-style documents.
+The browser posts text to `/api/voice`; the server calls ElevenLabs with its own key and enforces a 1,000-character cap, so the key never reaches a visitor. Audio is cached in Postgres by SHA-256 of text, voice and model, since ElevenLabs bills per character and summaries are replayed; a disk cache would vanish with every container restart. Without `ELEVENLABS_API_KEY`, voice is simply off.
 
-### Why pgvector instead of a separate vector database
+## Limitations and next steps
 
-The whole dataset for this project is a handful of uploaded specs —
-hundreds to low thousands of chunks, not millions. At that scale, a
-dedicated vector database (Pinecone, Weaviate, Qdrant, …) adds an extra
-service to run, pay for, and keep in sync with Postgres, without a
-performance benefit pgvector doesn't already provide (we use an HNSW
-index with cosine distance, which is the same algorithm most dedicated
-vector DBs use under the hood).
+- **Single instance.** The live-progress event bus and the rate-limit counters are in memory, which is right for one free instance but wrong for several. Scaling out would move events to Postgres `LISTEN/NOTIFY` or Redis pub/sub and the counters to a shared store (the heartbeat already lets instances agree on which runs are alive).
+- **Free tiers.** The first request after 15 idle minutes waits up to a minute for the instance to wake, and Neon adds a short cold start after 5 idle minutes. Gemini's free quota allows only a few runs per hour, which is why the demo is gated and the rate limits are tight.
+- **Shared demo data.** Everyone with the code sees and edits the same documents; real use would need accounts and per-user data.
+- **Production setup.** On Google Cloud Run the same image would get a minimum instance (no cold starts), Secret Manager, Cloud SQL or a paid Neon plan, and a job queue (Cloud Tasks) so runs don't depend on the web process staying alive.
+- **Evaluation depth.** Two synthetic specs are a regression check. Next: messier public specs in the golden set, and repeated runs per spec to measure variance, not just one score.
 
-Keeping embeddings in the same Postgres database as `documents`,
-`requirements`, and `test_cases` also means a single transaction can
-touch both relational and vector data — e.g. deleting a document cascades
-to its chunks automatically via a foreign key — and local dev only needs
-one `docker compose up` instead of standing up a second service. The
-trade-off is that pgvector wouldn't be the right call at a much larger
-scale (tens of millions of vectors, or needing features like serverless
-auto-scaling of the index) — but that's not this project.
+## Use Spec2Test from Claude Code (MCP)
 
-### Why voice is generated server-side and cached
+The MCP server runs locally over stdio, with the same database and `.env.local` as the web app. `pnpm install` compiles it to `dist/mcp/main.mjs`; after changing `src/`, run `pnpm mcp:build`.
 
-The browser never talks to ElevenLabs directly. It posts text to
-`/api/voice`, and the server calls ElevenLabs with the key from its own
-environment and streams the MP3 back. Calling ElevenLabs from the client
-would mean shipping the API key to every visitor. The server-side route is
-also where the Zod length cap (1,000 characters) is enforced, so nobody can
-drain the quota with huge requests.
+The repo's `.mcp.json` registers it for this project: run `claude` in the repo and approve `spec2test`. To use it from any directory:
 
-Generated audio is cached in Postgres (`audio_cache`), keyed by a SHA-256
-of the text, voice ID, and model ID. ElevenLabs bills per character, and
-the same run summary or chat answer is often played more than once, so a
-replay costs one primary-key lookup instead of quota. Postgres beat a
-folder on disk because Cloud Run's filesystem is per-instance and wiped on
-every restart, so a disk cache would silently stop working once deployed.
-The trade-off is binary blobs in the database and no eviction yet. Clips
-are ~30–100 KB, which is fine at this scale; an object store like GCS
-would be the next step if it grew.
+```bash
+claude mcp add --scope user spec2test -- node /path/to/Spec2Test/dist/mcp/main.mjs
+```
 
-Voice is optional. Without `ELEVENLABS_API_KEY`, the server tells the UI
-voice is off (a boolean, never the key), the Listen buttons don't render,
-and `/api/voice` returns 503. That's also why CI needs no ElevenLabs key.
+`claude mcp list` should show `✔ Connected`. Postgres must be running, and the web app too for the review step. (It's compiled because cold-starting the TypeScript through `tsx` took long enough to hit Claude Code's 30-second connection timeout; the bundle starts in about 2 s.)
+
+**Tools:** `list_documents`, `ingest_spec`, `start_run`, `get_run_status`, `get_requirements` (with ambiguity flags), `get_traceability_matrix` (with coverage and gaps), `export_playwright_tests`.
+
+> **You:** Ingest sample-specs/login-account-spec.md, start a run, and tell me which requirements are ambiguous.
+>
+> **Claude:** *(calls `ingest_spec`, `start_run`, polls `get_run_status`, then `get_requirements` with `ambiguousOnly`)* The run extracted 18 requirements and drafted 37 test cases, and is waiting for review. Three are ambiguous:
+>
+> | Code | Requirement | Why | Suggested rewrite |
+> |---|---|---|---|
+> | REQ-09 | Registration should be quick and easy for new users. | "Quick" and "easy" have no measurable threshold | Registration completes within 30 seconds of submitting the form |
+> | REQ-16 | The system should be secure against common attacks. | "Common attacks" isn't defined | Block every attack in the OWASP Top 10 categories |
+> | REQ-18 | User sessions should time out after a reasonable period of inactivity. | "A reasonable period" has no duration | End a session after 30 minutes of inactivity |
+>
+> I can't approve the test cases: Spec2Test only counts tests a person has signed off. Review them at http://localhost:3000/?run=59dcbd9d-… and click **Build matrix**; then I can export Playwright tests for the approved ones.
+
+The run and the three requirements are real tool output with `gemini-flash-lite-latest`; Claude's wording around them is condensed.
+
+## License
+
+[MIT](LICENSE)
