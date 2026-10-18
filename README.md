@@ -64,6 +64,7 @@ pnpm test:coverage      unit tests with a coverage report for src/lib/ (fails be
 pnpm test:integration   run tests against a real DB + embedding API (needs .env.local)
 pnpm test:e2e           run Playwright tests (own spec2test_e2e database, mock model, no API keys)
 pnpm test:mcp           run the MCP server tests (own spec2test_mcp database, mock model, no API keys)
+pnpm mcp:build          compile the MCP server to dist/mcp/main.mjs (pnpm install does this too)
 pnpm mcp                start the MCP server on stdio (normally Claude Code starts it for you)
 pnpm eval               run the evals with the real model from .env.local (uses quota; run manually)
 pnpm eval:mock          run the evals with the mock model and check the CI thresholds (no API key)
@@ -81,24 +82,38 @@ read the requirements and the traceability matrix, and export Playwright
 tests. It runs locally over stdio and uses the same database and
 `.env.local` as the web app.
 
+**Build it.** The server runs as compiled JavaScript,
+`dist/mcp/main.mjs`, which `pnpm install` builds automatically. After
+changing anything under `src/` that the server uses, rebuild it:
+
+```
+pnpm mcp:build
+```
+
 **Register it.** The repo includes a project-scoped `.mcp.json`, so
 running `claude` in the repo asks you once to approve the `spec2test`
 server. To register it yourself, run this from the repo root:
 
 ```
-claude mcp add --scope project spec2test -- node --conditions=react-server --import tsx src/mcp/main.ts
+claude mcp add --scope project spec2test -- node dist/mcp/main.mjs
 ```
 
-To use it from any directory, register it for your user through pnpm
-(on Windows, put `cmd /c` before `pnpm`):
+To use it from any directory, register it for your user with the
+absolute path; the server finds its packages and `.env.local` from its
+own location:
 
 ```
-claude mcp add --scope user spec2test -- pnpm --silent --dir /path/to/Spec2Test mcp
+claude mcp add --scope user spec2test -- node /path/to/Spec2Test/dist/mcp/main.mjs
 ```
 
-Check it with `claude mcp list`, or `/mcp` inside a session. Postgres must
-be running (`docker compose up -d`), and the web app too (`pnpm dev`) for
-the review step.
+Check it with `claude mcp list`, which should show `✔ Connected`, or
+`/mcp` inside a session. Postgres must be running (`docker compose up
+-d`), and the web app too (`pnpm dev`) for the review step.
+
+*Why compiled:* running the TypeScript through `tsx` meant transpiling
+hundreds of files on every cold start (5 s here, far more on a busy
+machine), long enough for Claude Code's 30-second connection timeout to
+fail it. The esbuild bundle answers in about 2 s, every time.
 
 **Tools:** `list_documents`, `ingest_spec` (a file path or Markdown text),
 `start_run`, `get_run_status`, `get_requirements` (with ambiguity flags),
@@ -113,30 +128,26 @@ the link to the review screen, and the agent hands it to you:
 > me which requirements are ambiguous.
 >
 > **Claude:** *(calls `ingest_spec`, `start_run`, polls `get_run_status`,
-> then `get_requirements` with `ambiguousOnly`)* The run extracted 16
-> requirements and drafted 32 test cases, and is now waiting for review.
+> then `get_requirements` with `ambiguousOnly`)* The run extracted 18
+> requirements and drafted 37 test cases, and is now waiting for review.
 > Three requirements are ambiguous:
 >
-> | Code | Requirement | Problem |
-> |---|---|---|
-> | REQ-05 | The login experience should feel fast and responsive. | "fast" has no measurable threshold |
-> | REQ-13 | Password reset emails should be delivered quickly. | "quickly" has no threshold |
-> | REQ-15 | The system should be secure against common attacks. | "secure" isn't testable as written |
+> | Code | Requirement | Why | Suggested rewrite |
+> |---|---|---|---|
+> | REQ-09 | Registration should be quick and easy for new users. | "Quick" and "easy" have no measurable threshold | Registration completes within 30 seconds of submitting the form |
+> | REQ-16 | The system should be secure against common attacks. | "Common attacks" isn't defined | Block every attack in the OWASP Top 10 categories |
+> | REQ-18 | User sessions should time out after a reasonable period of inactivity. | "A reasonable period" has no duration | End a session after 30 minutes of inactivity |
 >
 > I can't approve the test cases: Spec2Test only counts tests a person has
-> signed off. Review them at http://localhost:3000/?run=37640c8b-… , click
-> **Build matrix**, and I'll fetch the traceability matrix.
->
-> **You:** Done. Show me the coverage and export the Playwright tests to
-> ./e2e/generated.
->
-> **Claude:** *(calls `get_traceability_matrix` and
-> `export_playwright_tests`)* Coverage is 23%: 3 of 13 testable
-> requirements have an approved test. 13 gaps: 3 unresolved ambiguities
-> and 10 requirements with only draft tests. I wrote 3 spec files to
-> ./e2e/generated.
+> signed off. Review them at http://localhost:3000/?run=59dcbd9d-… and
+> click **Build matrix**; then I can fetch the traceability matrix and
+> export Playwright tests for the approved ones.
 
-(Abridged from a real session against the mock model.)
+The run, its counts, and the three requirements with their reasons and
+rewrites are real tool output from the compiled server with
+`gemini-flash-lite-latest`; Claude's wording around them is condensed.
+(Codes are the app's own REQ-NN numbering, which shifts by one after
+REQ-LA-11 is split: spec REQ-LA-15 is REQ-16 here, LA-17 is REQ-18.)
 
 ## Evaluation
 
