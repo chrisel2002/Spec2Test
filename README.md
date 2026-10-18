@@ -102,7 +102,7 @@ Each step records its status, tokens and estimated cost in `agent_runs`.
 
 ## Quickstart
 
-Needs Node 20+, Docker, and Git. pnpm comes from Corepack.
+Needs Node 20+, Docker, and Git. pnpm comes from Corepack (on Windows, `corepack enable` needs an administrator terminal; `npm install -g pnpm` works too).
 
 ```bash
 git clone https://github.com/chrisel2002/Spec2Test.git
