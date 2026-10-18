@@ -3,7 +3,7 @@ import { interrupt } from "@langchain/langgraph";
 import type { AgentState } from "../state";
 
 // What the graph exposes while paused, and what a resume must supply.
-export type ReviewCheckpoint = { runId: string; reason: "waiting_for_review" };
+type ReviewCheckpoint = { runId: string; reason: "waiting_for_review" };
 export type ReviewResume = { reviewedBy: string };
 
 // The human-in-the-loop checkpoint. interrupt() stops the graph here: the

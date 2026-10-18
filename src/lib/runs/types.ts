@@ -17,14 +17,14 @@ export const StepNameSchema = z.enum([
 ]);
 export type StepName = z.infer<typeof StepNameSchema>;
 
-export const StepStatusSchema = z.enum([
+const StepStatusSchema = z.enum([
   "pending",
   "running",
   "succeeded",
   "failed",
 ]);
 
-export const RunStatusSchema = z.enum([
+const RunStatusSchema = z.enum([
   "running",
   "waiting_for_review",
   "completed",
@@ -32,10 +32,10 @@ export const RunStatusSchema = z.enum([
 ]);
 export type RunStatus = z.infer<typeof RunStatusSchema>;
 
-export const TestCaseStatusSchema = z.enum(["draft", "approved", "rejected"]);
+const TestCaseStatusSchema = z.enum(["draft", "approved", "rejected"]);
 export type TestCaseStatus = z.infer<typeof TestCaseStatusSchema>;
 
-export const RunSummarySchema = z.object({
+const RunSummarySchema = z.object({
   id: z.string(),
   documentId: z.string(),
   status: RunStatusSchema,
@@ -49,7 +49,7 @@ export type RunSummary = z.infer<typeof RunSummarySchema>;
 
 // One agent_runs row. A retried step gets a new row, so a run can have
 // several rows for the same step name; the latest one is the step's state.
-export const StepViewSchema = z.object({
+const StepViewSchema = z.object({
   id: z.string(),
   step: StepNameSchema,
   status: StepStatusSchema,
@@ -60,7 +60,7 @@ export const StepViewSchema = z.object({
 });
 export type StepView = z.infer<typeof StepViewSchema>;
 
-export const RequirementViewSchema = z.object({
+const RequirementViewSchema = z.object({
   id: z.string(),
   code: z.string(),
   title: z.string(),

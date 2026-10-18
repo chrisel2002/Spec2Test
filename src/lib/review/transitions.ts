@@ -15,7 +15,7 @@ export const ActorSchema = z
   .min(1, "Enter your name so changes can be traced")
   .max(60);
 
-export const ReviewChangeSchema = z.discriminatedUnion("action", [
+const ReviewChangeSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("approve") }),
   z.object({ action: z.literal("reject") }),
   z.object({ action: z.literal("edit"), testCase: EditableTestCaseSchema }),

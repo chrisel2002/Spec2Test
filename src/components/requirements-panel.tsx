@@ -23,7 +23,7 @@ function Stat({ label, value }: { label: string; value: number }) {
   );
 }
 
-export function RequirementSkeleton() {
+function RequirementSkeleton() {
   return (
     <li className="animate-pulse rounded-xl border bg-card p-4" aria-hidden>
       <div className="mb-2 flex gap-2">

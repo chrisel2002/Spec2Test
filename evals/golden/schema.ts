@@ -20,7 +20,7 @@ function isValidRegex(pattern: string): boolean {
   }
 }
 
-export const GoldenRequirementSchema = z
+const GoldenRequirementSchema = z
   .object({
     // The id the evaluation reports. Equal to sourceId, except for the
     // parts of a compound requirement that should be split: REQ-LA-11.1
@@ -46,7 +46,7 @@ export const GoldenRequirementSchema = z
     message: "id must equal sourceId, or be sourceId plus a part number for a split",
   });
 
-export const GoldenBoundarySchema = z.object({
+const GoldenBoundarySchema = z.object({
   id: z.string().regex(/^(LA|CO|IN)-B\d+$/),
   requirementId: z.string(),
   // The value in plain words, as reported in eval results.
@@ -94,5 +94,3 @@ export const GoldenSpecSchema = z
   });
 
 export type GoldenSpec = z.infer<typeof GoldenSpecSchema>;
-export type GoldenRequirement = GoldenSpec["requirements"][number];
-export type GoldenBoundary = GoldenSpec["boundaries"][number];

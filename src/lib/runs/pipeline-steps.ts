@@ -2,7 +2,7 @@ import type { StepProgress } from "./reducer";
 import { latestSteps } from "./selectors";
 import type { RunDetail, StepName } from "./types";
 
-export type StepState = "done" | "running" | "waiting" | "failed";
+type StepState = "done" | "running" | "waiting" | "failed";
 
 export type PipelineStep = {
   key: "parse_embed" | StepName;

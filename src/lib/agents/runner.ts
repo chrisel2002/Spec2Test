@@ -24,7 +24,7 @@ type RunPatch = Partial<
 >;
 
 // Saves a run-level status change and pushes it to anyone watching.
-export async function updateRun(
+async function updateRun(
   runId: string,
   patch: RunPatch,
 ): Promise<RunSummary> {
@@ -42,7 +42,7 @@ export async function updateRun(
 // without a heartbeat before a "running" run counts as cut off. The gap
 // leaves room for a slow DB write or a long event-loop pause.
 const HEARTBEAT_INTERVAL_MS = 5_000;
-export const HEARTBEAT_TIMEOUT_SECONDS = 30;
+const HEARTBEAT_TIMEOUT_SECONDS = 30;
 
 // A "running" row whose heartbeat is missing or older than the timeout.
 const heartbeatStopped = sql`(${runs.heartbeatAt} is null or ${runs.heartbeatAt} < now() - make_interval(secs => ${HEARTBEAT_TIMEOUT_SECONDS}))`;

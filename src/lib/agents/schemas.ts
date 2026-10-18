@@ -12,7 +12,6 @@ const TEXT_MAX = 1000;
 // ---------------------------------------------------------------------------
 
 export const TestCaseTypeSchema = z.enum(["positive", "negative", "boundary"]);
-export type TestCaseType = z.infer<typeof TestCaseTypeSchema>;
 
 // ---------------------------------------------------------------------------
 // Node 1 — extract requirements
@@ -38,7 +37,6 @@ export const ExtractedRequirementSchema = z.object({
     .max(10)
     .describe("Which given chunk label(s) (e.g. 'chunk_2') this came from"),
 });
-export type ExtractedRequirement = z.infer<typeof ExtractedRequirementSchema>;
 
 export const ExtractionBatchResultSchema = z.object({
   requirements: z.array(ExtractedRequirementSchema),
@@ -84,7 +82,6 @@ export const AmbiguityResultSchema = z
         "reason and suggestedRewrite are required when isAmbiguous is true",
     },
   );
-export type AmbiguityResult = z.infer<typeof AmbiguityResultSchema>;
 
 export const AmbiguityBatchResultSchema = z.object({
   results: z.array(AmbiguityResultSchema),
@@ -103,7 +100,6 @@ export const GeneratedTestCaseSchema = z.object({
   when: z.string().min(1, "Describe the action").max(TEXT_MAX),
   then: z.string().min(1, "Describe the expected outcome").max(TEXT_MAX),
 });
-export type GeneratedTestCase = z.infer<typeof GeneratedTestCaseSchema>;
 
 // One entry per requirement in the batch, in the same order — matches each
 // requirement to between 2 and 4 test cases without needing the model to

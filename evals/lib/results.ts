@@ -7,7 +7,7 @@ import { z } from "zod";
 
 const nullableRatio = z.number().min(0).max(1).nullable();
 
-export const MetricsSchema = z.object({
+const MetricsSchema = z.object({
   requirementRecall: z.number().min(0).max(1),
   requirementPrecision: nullableRatio,
   ambiguityPrecision: nullableRatio,
@@ -23,7 +23,7 @@ const UsageSchema = z.object({
   totalTokens: z.number(),
 });
 
-export const SpecResultSchema = z.object({
+const SpecResultSchema = z.object({
   spec: z.string(),
   ok: z.boolean(),
   // Set when the run failed (e.g. the quota ran out); metrics are absent.

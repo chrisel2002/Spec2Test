@@ -2,7 +2,7 @@ import type { UIMessage } from "ai";
 
 import type { RetrievedChunk } from "./retrieval";
 
-export type ChatDataParts = {
+type ChatDataParts = {
   citations: RetrievedChunk[];
 };
 

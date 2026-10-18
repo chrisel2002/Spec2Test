@@ -14,7 +14,7 @@ function Step({ keyword, text }: { keyword: string; text: string }) {
   );
 }
 
-export function GivenWhenThen({ testCase }: { testCase: TestCaseView }) {
+function GivenWhenThen({ testCase }: { testCase: TestCaseView }) {
   return (
     <dl className="grid grid-cols-[3.5rem_1fr] gap-x-3 gap-y-1.5">
       <Step keyword="Given" text={testCase.given} />

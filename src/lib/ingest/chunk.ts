@@ -15,8 +15,8 @@ export type Chunk = {
 // flooding retrieval with hundreds of tiny fragments. ~100 chars (~12%)
 // of overlap means a sentence that falls near a split point still appears
 // in full in at least one chunk, so we don't lose it at a boundary.
-export const DEFAULT_CHUNK_SIZE = 800;
-export const DEFAULT_CHUNK_OVERLAP = 100;
+const DEFAULT_CHUNK_SIZE = 800;
+const DEFAULT_CHUNK_OVERLAP = 100;
 
 type Section = {
   heading: Heading | null;

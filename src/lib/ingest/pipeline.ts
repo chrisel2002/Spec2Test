@@ -12,7 +12,7 @@ import { parseMarkdown } from "./markdown";
 import { parsePdf } from "./pdf";
 import type { ParsedDocument } from "./types";
 
-export type DocumentStatus = (typeof documents.$inferSelect)["status"];
+type DocumentStatus = (typeof documents.$inferSelect)["status"];
 
 export type EmbedResult = {
   status: DocumentStatus;
@@ -122,7 +122,7 @@ export async function ingestDocument(options: {
   };
 }
 
-export function quotaPausedMessage(
+function quotaPausedMessage(
   isDailyQuota: boolean,
   embeddedCount: number,
   chunkCount: number,

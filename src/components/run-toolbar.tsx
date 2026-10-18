@@ -18,7 +18,7 @@ const RUN_STATUS: Record<RunStatus, { label: string; className: string }> = {
   failed: { label: "Failed", className: "bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300" },
 };
 
-export function RunStatusBadge({ status }: { status: RunStatus }) {
+function RunStatusBadge({ status }: { status: RunStatus }) {
   const { label, className } = RUN_STATUS[status];
   return (
     <Badge className={cn("gap-1", className)} data-testid="run-status" data-status={status}>

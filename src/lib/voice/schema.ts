@@ -9,4 +9,3 @@ export const ttsRequestSchema = z.object({
   text: z.string().trim().min(1).max(MAX_TTS_CHARS),
 });
 
-export type TtsRequest = z.infer<typeof ttsRequestSchema>;
