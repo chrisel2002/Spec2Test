@@ -10,12 +10,10 @@ export async function GET() {
     await db.execute(sql`select 1`);
     return NextResponse.json({ status: "ok", database: "connected" });
   } catch (error) {
+    // Database errors can name the host and user; log them, don't return them.
+    console.error("Health check: database unreachable", error);
     return NextResponse.json(
-      {
-        status: "error",
-        database: "disconnected",
-        message: error instanceof Error ? error.message : "Unknown error",
-      },
+      { status: "error", database: "disconnected" },
       { status: 503 },
     );
   }

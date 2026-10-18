@@ -5,6 +5,7 @@ import {
 import { generateStructured } from "@/lib/ai/generate-structured";
 
 import { type BatchProgress, chunkArray } from "../batch";
+import { AgentOutputError } from "../errors";
 import { AmbiguityBatchResultSchema, type Requirement } from "../schemas";
 import { addUsage, emptyUsage, type Usage } from "../usage";
 
@@ -32,7 +33,7 @@ export async function checkAmbiguityForRequirements(
     usage = addUsage(usage, batchUsage);
 
     if (object.results.length !== batch.length) {
-      throw new Error(
+      throw new AgentOutputError(
         `Ambiguity check returned ${object.results.length} results for a batch of ${batch.length} requirements`,
       );
     }

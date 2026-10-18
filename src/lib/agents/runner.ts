@@ -15,6 +15,7 @@ import {
 } from "@/lib/runs/types";
 import { toRunSummary } from "@/lib/runs/views";
 
+import { publicErrorMessage } from "./errors";
 import { getAgentGraph } from "./graph";
 import type { ReviewResume } from "./nodes/human-review-node";
 
@@ -145,7 +146,8 @@ export async function executeRun(runId: string, input: RunInput) {
     await updateRun(runId, {
       status: "failed",
       finishedAt: new Date(),
-      error: error instanceof Error ? error.message : String(error),
+      // The full error is logged above; users see a safe summary.
+      error: publicErrorMessage(error),
       rateLimited: isRateLimitError(error),
     });
   } finally {

@@ -5,6 +5,7 @@ import {
 } from "@/lib/ai/prompts/generate-tests";
 
 import { type BatchProgress, chunkArray } from "../batch";
+import { AgentOutputError } from "../errors";
 import { type Requirement, type TestCase, TestGenerationBatchResultSchema } from "../schemas";
 import { addUsage, emptyUsage, type Usage } from "../usage";
 
@@ -43,7 +44,7 @@ export async function generateTestsForRequirements(
     usage = addUsage(usage, batchUsage);
 
     if (object.results.length !== batch.length) {
-      throw new Error(
+      throw new AgentOutputError(
         `Test generation returned ${object.results.length} results for a batch of ${batch.length} requirements`,
       );
     }

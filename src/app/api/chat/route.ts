@@ -5,7 +5,9 @@ import {
   streamText,
   toUIMessageStream,
 } from "ai";
+import { NextResponse } from "next/server";
 
+import { publicErrorMessage } from "@/lib/agents/errors";
 import { getChatModel } from "@/lib/ai/providers";
 import {
   buildExcerptContext,
@@ -33,11 +35,21 @@ export async function POST(request: Request) {
   const { messages }: { messages: SpecUIMessage[] } = await request.json();
 
   const question = latestUserText(messages);
-  const chunks = question
-    ? await retrieveRelevantChunks(question, { topK: 5 })
-    : [];
+  let chunks: Awaited<ReturnType<typeof retrieveRelevantChunks>> = [];
+  try {
+    chunks = question ? await retrieveRelevantChunks(question, { topK: 5 }) : [];
+  } catch (error) {
+    console.error("Chat retrieval failed", error);
+    return NextResponse.json({ error: publicErrorMessage(error) }, { status: 502 });
+  }
 
   const stream = createUIMessageStream<SpecUIMessage>({
+    // Without this the SDK sends a bare "An error occurred."; with it, the
+    // user gets a safe summary and the server log keeps the details.
+    onError: (error) => {
+      console.error("Chat answer failed", error);
+      return publicErrorMessage(error);
+    },
     execute: async ({ writer }) => {
       writer.write({ type: "data-citations", data: chunks });
 

@@ -8,6 +8,7 @@ import type { RunEvent, StepName } from "@/lib/runs/types";
 import { toStepView } from "@/lib/runs/views";
 
 import { estimateCostUsd } from "./cost";
+import { publicErrorMessage } from "./errors";
 import type { Usage } from "./usage";
 
 export type Emit = (event: RunEvent) => void;
@@ -53,12 +54,13 @@ async function succeedStep(ctx: StepContext, rowId: string, usage: Usage) {
 }
 
 async function failStep(ctx: StepContext, rowId: string, error: unknown) {
+  console.error(`Step failed in run ${ctx.runId}`, error);
   const [row] = await db
     .update(agentRuns)
     .set({
       status: "failed",
       finishedAt: new Date(),
-      error: error instanceof Error ? error.message : String(error),
+      error: publicErrorMessage(error),
     })
     .where(eq(agentRuns.id, rowId))
     .returning();
