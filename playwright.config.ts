@@ -8,6 +8,10 @@ export default defineConfig({
   testDir: "./tests/e2e",
   globalSetup: "./tests/e2e/global-setup.ts",
   fullyParallel: true,
+  // The dev server compiles each route on its first request; from a cold
+  // build directory (always the case in CI) a simple upload test takes
+  // close to 30 s, Playwright's default, so allow double that.
+  timeout: 60_000,
   retries: process.env.CI ? 2 : 0,
   reporter: "list",
   use: {
