@@ -1,6 +1,7 @@
 import { extractText, getDocumentProxy } from "unpdf";
 
 import { normalizeLineEndings } from "./text";
+import { IngestInputError, MAX_PDF_PAGES } from "./validate";
 import type { ParsedDocument } from "./types";
 
 const SECTION_HEADING = /^\d+\.\s+\S/;
@@ -24,10 +25,36 @@ const REQUIREMENT_HEADING = /^REQ-[\w.-]+:\s/;
 // detaches its underlying buffer after use — pass a fresh Uint8Array (e.g.
 // from a new readFile call) on every call, never a buffer reused from a
 // previous parsePdf() call, or the second call throws DataCloneError.
-export async function parsePdf(data: Uint8Array): Promise<ParsedDocument> {
-  const pdf = await getDocumentProxy(data);
+export async function parsePdf(
+  data: Uint8Array,
+  { maxPages = MAX_PDF_PAGES }: { maxPages?: number } = {},
+): Promise<ParsedDocument> {
+  let pdf: Awaited<ReturnType<typeof getDocumentProxy>>;
+  try {
+    pdf = await getDocumentProxy(data);
+  } catch (error) {
+    const encrypted = error instanceof Error && error.name === "PasswordException";
+    throw new IngestInputError(
+      encrypted
+        ? "This PDF is password-protected. Remove the password and upload it again."
+        : "This PDF couldn't be read; it may be damaged. Try exporting it again.",
+    );
+  }
+  // Checked before extracting any text, so a huge document is refused
+  // cheaply instead of being parsed and chunked first.
+  if (pdf.numPages > maxPages) {
+    throw new IngestInputError(
+      `This PDF has ${pdf.numPages} pages; the limit is ${maxPages}. Split it into smaller specs.`,
+    );
+  }
+
   const { text } = await extractText(pdf, { mergePages: false });
   const pageTexts = Array.isArray(text) ? text : [text];
+  if (pageTexts.every((page) => page.trim() === "")) {
+    throw new IngestInputError(
+      "This PDF has no text layer (it may be a scanned image). Upload a PDF with selectable text, or the Markdown source.",
+    );
+  }
 
   const textParts: string[] = [];
   const headings: ParsedDocument["headings"] = [];

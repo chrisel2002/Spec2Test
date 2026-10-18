@@ -111,7 +111,7 @@ describe("Spec2Test MCP server", () => {
     expect(both).toMatchObject({ isError: true, text: "Pass exactly one of path or markdown." });
 
     const wrongType = await call("ingest_spec", { markdown: SPEC, filename: "spec.docx" });
-    expect(wrongType).toMatchObject({ isError: true, text: "Only .md and .pdf files are supported" });
+    expect(wrongType).toMatchObject({ isError: true, text: "Only Markdown (.md) and PDF (.pdf) files are supported." });
   });
 
   it("starts a run that pauses for human review, and says where to review it", async () => {

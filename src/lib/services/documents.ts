@@ -11,14 +11,9 @@ import {
   ingestDocument,
   type IngestResult,
 } from "@/lib/ingest/pipeline";
+import { IngestInputError, validateSpecFile } from "@/lib/ingest/validate";
 
 import { requireUuid, ServiceError } from "./errors";
-
-export const MAX_SPEC_SIZE = 10 * 1024 * 1024; // 10 MB
-const MIME_BY_EXTENSION = {
-  ".md": "text/markdown",
-  ".pdf": "application/pdf",
-} as const;
 
 export function listDocuments() {
   return listDocumentSummaries();
@@ -34,26 +29,21 @@ export async function getDocument(documentId: string) {
   return document;
 }
 
-// Same rules for a browser upload and an MCP ingest_spec call. Validated by
-// extension because browsers report an unreliable (often empty) MIME type
-// for .md files.
-function mimeTypeFor(filename: string, size: number): string {
-  if (size === 0) throw new ServiceError("File is empty", "invalid");
-  if (size > MAX_SPEC_SIZE) throw new ServiceError("File exceeds the 10 MB limit", "invalid");
-  const extension = Object.keys(MIME_BY_EXTENSION).find((ext) =>
-    filename.toLowerCase().endsWith(ext),
-  ) as keyof typeof MIME_BY_EXTENSION | undefined;
-  if (!extension) {
-    throw new ServiceError("Only .md and .pdf files are supported", "invalid");
-  }
-  return MIME_BY_EXTENSION[extension];
-}
-
 // Parses, chunks, and embeds a spec. Re-ingesting the same bytes returns
 // the existing document instead of a duplicate (see ingestDocument).
-export function ingestSpec(input: { filename: string; data: Buffer }): Promise<IngestResult> {
-  const mimeType = mimeTypeFor(input.filename, input.data.length);
-  return ingestDocument({ filename: input.filename, mimeType, data: input.data });
+//
+// The same checks for a browser upload and an MCP ingest_spec call: file
+// type by content as well as extension, size, emptiness, and (while
+// parsing) PDF page count and readability. A problem with the file is an
+// IngestInputError, whose message is meant for the uploader.
+export async function ingestSpec(input: { filename: string; data: Buffer }): Promise<IngestResult> {
+  try {
+    const { mimeType } = validateSpecFile(input.filename, input.data);
+    return await ingestDocument({ filename: input.filename, mimeType, data: input.data });
+  } catch (error) {
+    if (error instanceof IngestInputError) throw new ServiceError(error.message, "invalid");
+    throw error;
+  }
 }
 
 // Resumes a document whose embedding was paused ("waiting") or stopped
