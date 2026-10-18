@@ -1,5 +1,3 @@
-# syntax=docker/dockerfile:1
-#
 # Production image for Spec2Test: Next.js standalone output on Node 22.
 # Three stages, so the final image contains only the compiled server and
 # the node_modules files it uses, not the toolchain or the source.
@@ -30,7 +28,8 @@ ENV NEXT_TELEMETRY_DISABLED=1
 # The real URL is only ever given to the running container.
 RUN DATABASE_URL=postgres://build:build@localhost:5432/build pnpm exec next build
 
-# 3. Runtime: just the standalone server, static assets, and public files.
+# 3. Runtime: just the standalone server and its static assets. (There is
+#    no public/ folder; add a COPY for it if one is ever needed.)
 FROM node:22-alpine AS runtime
 WORKDIR /app
 ENV NODE_ENV=production \
@@ -46,7 +45,6 @@ ENV NODE_ENV=production \
 # The node image's built-in unprivileged user: the server never runs as root.
 COPY --from=build --chown=node:node /app/.next/standalone ./
 COPY --from=build --chown=node:node /app/.next/static ./.next/static
-COPY --from=build --chown=node:node /app/public ./public
 USER node
 
 EXPOSE 10000

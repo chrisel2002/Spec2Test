@@ -20,7 +20,6 @@
     "db:migrate": "dotenv -e .env.local -- drizzle-kit migrate",
     "db:migrate:prod": "dotenv -e .env.production.local -- tsx scripts/migrate-prod.ts",
     "db:seed-demo": "dotenv -e .env.local -e .env.production.local -- tsx scripts/seed-demo.ts",
-    "tts:hello": "dotenv -e .env.local -- tsx scripts/tts-hello.ts",
     "mcp:build": "esbuild src/mcp/main.ts --bundle --platform=node --format=esm --target=node20 --packages=external --alias:server-only=./node_modules/server-only/empty.js --outfile=dist/mcp/main.mjs",
     "mcp": "node dist/mcp/main.mjs",
     "prepare": "pnpm run mcp:build"

@@ -70,7 +70,6 @@ pnpm eval               run the evals with the real model from .env.local (uses 
 pnpm eval:mock          run the evals with the mock model and check the CI thresholds (no API key)
 pnpm knip               find unused files, exports, and dependencies
 pnpm db:generate        generate a new Drizzle migration after changing the schema
-pnpm tts:hello          smoke-test ElevenLabs: writes output/hello.mp3 (needs ELEVENLABS_API_KEY)
 pnpm lint               lint and type-check
 ```
 
