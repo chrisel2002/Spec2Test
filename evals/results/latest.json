@@ -1,11 +1,11 @@
 {
-  "createdAt": "2026-10-18T14:50:03.320Z",
+  "createdAt": "2026-10-18T14:54:02.261Z",
   "model": {
     "provider": "google",
     "name": "gemini-flash-lite-latest"
   },
-  "promptVersion": "v1",
-  "promptHash": "5722b1e7",
+  "promptVersion": "v2",
+  "promptHash": "3d74ac8f",
   "specs": [
     {
       "spec": "checkout-spec.md",
@@ -14,28 +14,28 @@
       "metrics": {
         "requirementRecall": 1,
         "requirementPrecision": 1,
-        "ambiguityPrecision": 0.75,
+        "ambiguityPrecision": 1,
         "ambiguityRecall": 1,
-        "boundaryCoverage": 1,
+        "boundaryCoverage": 0.5,
         "grounding": 1,
         "schemaValidity": 1
       },
       "usage": {
-        "inputTokens": 5030,
-        "outputTokens": 4517,
-        "totalTokens": 9547
+        "inputTokens": 5452,
+        "outputTokens": 4577,
+        "totalTokens": 10029
       },
-      "costUsd": 0.000866175,
-      "durationMs": 19742,
+      "costUsd": 0.0008910000000000001,
+      "durationMs": 50545,
       "stepDurationsMs": {
-        "extract": 5508,
-        "ambiguity": 4103,
-        "tests": 10130
+        "extract": 5348,
+        "ambiguity": 34812,
+        "tests": 10385
       },
       "modelCalls": 15,
       "counts": {
         "requirements": 16,
-        "testCases": 36
+        "testCases": 35
       },
       "details": {
         "matched": [
@@ -45,7 +45,7 @@
           },
           {
             "goldenId": "REQ-CO-02",
-            "extracted": "Cart item quantity limits. The system shall allow the quantity of each cart item to be set to a whole number from 1 to 10."
+            "extracted": "Item quantity limits. The system shall allow the quantity of each cart item to be set to a whole number from 1 to 10."
           },
           {
             "goldenId": "REQ-CO-03",
@@ -65,11 +65,11 @@
           },
           {
             "goldenId": "REQ-CO-06.2",
-            "extracted": "Save validated address to address book. The system shall save the validated address to the user's address book."
+            "extracted": "Save address to address book. The system shall save the validated address to the user's address book."
           },
           {
             "goldenId": "REQ-CO-07",
-            "extracted": "Short checkout. The checkout should not take too many steps."
+            "extracted": "Short checkout steps. The checkout should not take too many steps."
           },
           {
             "goldenId": "REQ-CO-08",
@@ -89,7 +89,7 @@
           },
           {
             "goldenId": "REQ-CO-12",
-            "extracted": "Free delivery threshold. The system shall charge no delivery fee for orders with a subtotal of €50.00 or more, and a flat delivery fee of €4.95 for orders below €50.00."
+            "extracted": "Free delivery threshold. The system shall charge no delivery fee for orders with a subtotal of •50.00 or more, and a flat delivery fee of •4.95 for orders below •50.00."
           },
           {
             "goldenId": "REQ-CO-13",
@@ -112,9 +112,7 @@
             "REQ-CO-11",
             "REQ-CO-15"
           ],
-          "falsePositives": [
-            "REQ-CO-13"
-          ],
+          "falsePositives": [],
           "falseNegatives": []
         },
         "boundaries": [
@@ -126,7 +124,7 @@
           {
             "id": "CO-B2",
             "value": "€50.00 delivery threshold",
-            "covered": true
+            "covered": false
           }
         ],
         "forbiddenOutput": []
@@ -146,16 +144,16 @@
         "schemaValidity": 1
       },
       "usage": {
-        "inputTokens": 5369,
-        "outputTokens": 5374,
-        "totalTokens": 10743
+        "inputTokens": 5809,
+        "outputTokens": 5353,
+        "totalTokens": 11162
       },
-      "costUsd": 0.0010074375,
-      "durationMs": 59073,
+      "costUsd": 0.0010207875,
+      "durationMs": 61646,
       "stepDurationsMs": {
-        "extract": 43359,
-        "ambiguity": 4360,
-        "tests": 11354
+        "extract": 8297,
+        "ambiguity": 41983,
+        "tests": 11366
       },
       "modelCalls": 15,
       "counts": {
@@ -166,19 +164,19 @@
         "matched": [
           {
             "goldenId": "REQ-LA-01",
-            "extracted": "Email and Password Login. The system shall allow a registered user to log in using their email address and password."
+            "extracted": "Email and password login. The system shall allow a registered user to log in using their email address and password."
           },
           {
             "goldenId": "REQ-LA-02",
-            "extracted": "Account Lockout After Failed Attempts. The system shall lock a user's account for 15 minutes after 5 consecutive failed login attempts within a 10-minute window."
+            "extracted": "Account lockout after failed login attempts. The system shall lock a user's account for 15 minutes after 5 consecutive failed login attempts within a 10-minute window."
           },
           {
             "goldenId": "REQ-LA-03",
-            "extracted": "Locked Account Message. When an account is locked, the system shall show a message stating that the account is temporarily locked and the time at which the user may try again."
+            "extracted": "Locked-account message. When an account is locked, the system shall show a message stating that the account is temporarily locked and the time at which the user may try again."
           },
           {
             "goldenId": "REQ-LA-04",
-            "extracted": "Generic error message for invalid credentials. The system shall display a generic \"invalid email or password\" error message when login fails, without indicating whether the email address or the password was incorrect."
+            "extracted": "Generic login error message. The system shall display a generic \"invalid email or password\" error message when login fails, without indicating whether the email address or the password was incorrect."
           },
           {
             "goldenId": "REQ-LA-05",
@@ -190,7 +188,7 @@
           },
           {
             "goldenId": "REQ-LA-07",
-            "extracted": "Email verification. The system shall keep a new account unverified until the user clicks the confirmation link in the verification email sent to the address provided at registration."
+            "extracted": "Email verification for new accounts. The system shall keep a new account unverified until the user clicks the confirmation link in the verification email sent to the address provided at registration."
           },
           {
             "goldenId": "REQ-LA-08",
@@ -206,7 +204,7 @@
           },
           {
             "goldenId": "REQ-LA-11.1",
-            "extracted": "Send password reset link. The system shall send a password reset link to the user's registered email address on request."
+            "extracted": "Password reset email. The system shall send a password reset link to the user's registered email address on request."
           },
           {
             "goldenId": "REQ-LA-11.2",
@@ -222,7 +220,7 @@
           },
           {
             "goldenId": "REQ-LA-14",
-            "extracted": "Two-factor authentication enablement. The system shall allow a user to enable two-factor authentication (2FA) using a time-based one-time password (TOTP) authenticator app."
+            "extracted": "Two-factor authentication. The system shall allow a user to enable two-factor authentication (2FA) using a time-based one-time password (TOTP) authenticator app."
           },
           {
             "goldenId": "REQ-LA-15",

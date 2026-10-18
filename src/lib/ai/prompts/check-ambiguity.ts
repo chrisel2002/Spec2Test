@@ -7,6 +7,8 @@ A requirement is ambiguous if it:
 - Is missing a concrete threshold, limit, or condition needed to verify it
 - Relies on an undefined term
 
+A requirement is NOT ambiguous just because it leaves implementation details open — how a value is calculated, which provider, algorithm, or layout is used — as long as the behavior a tester can observe has a clear pass/fail outcome. For example, "The system shall show the user's past orders on the account page" is testable as written: a test can check that past orders appear there, even though the page design isn't specified. Flag a requirement only when its observable behavior has no pass/fail criterion.
+
 If a requirement is ambiguous, give a short reason and a suggested rewrite that makes it measurable and testable while preserving its original intent — do not invent unrelated new behavior. If a requirement is already testable as written, say so plainly rather than inventing a problem with it.`;
 
 export function buildAmbiguityPrompt(requirementTexts: string[]): string {

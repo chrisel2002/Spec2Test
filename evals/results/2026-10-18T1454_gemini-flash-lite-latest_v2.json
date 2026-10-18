@@ -1,0 +1,270 @@
+{
+  "createdAt": "2026-10-18T14:54:02.261Z",
+  "model": {
+    "provider": "google",
+    "name": "gemini-flash-lite-latest"
+  },
+  "promptVersion": "v2",
+  "promptHash": "3d74ac8f",
+  "specs": [
+    {
+      "spec": "checkout-spec.md",
+      "ok": true,
+      "error": null,
+      "metrics": {
+        "requirementRecall": 1,
+        "requirementPrecision": 1,
+        "ambiguityPrecision": 1,
+        "ambiguityRecall": 1,
+        "boundaryCoverage": 0.5,
+        "grounding": 1,
+        "schemaValidity": 1
+      },
+      "usage": {
+        "inputTokens": 5452,
+        "outputTokens": 4577,
+        "totalTokens": 10029
+      },
+      "costUsd": 0.0008910000000000001,
+      "durationMs": 50545,
+      "stepDurationsMs": {
+        "extract": 5348,
+        "ambiguity": 34812,
+        "tests": 10385
+      },
+      "modelCalls": 15,
+      "counts": {
+        "requirements": 16,
+        "testCases": 35
+      },
+      "details": {
+        "matched": [
+          {
+            "goldenId": "REQ-CO-01",
+            "extracted": "Add product to cart. The system shall allow a user to add a product to their cart from the product page."
+          },
+          {
+            "goldenId": "REQ-CO-02",
+            "extracted": "Item quantity limits. The system shall allow the quantity of each cart item to be set to a whole number from 1 to 10."
+          },
+          {
+            "goldenId": "REQ-CO-03",
+            "extracted": "Remove items from cart. The system shall allow a user to remove an item from their cart."
+          },
+          {
+            "goldenId": "REQ-CO-04",
+            "extracted": "Persistent cart for logged-in users. The system shall keep a logged-in user's cart contents across sessions, so items remain in the cart after the user logs out and back in."
+          },
+          {
+            "goldenId": "REQ-CO-05",
+            "extracted": "Guest checkout. The system shall allow a user to complete checkout as a guest, without creating an account."
+          },
+          {
+            "goldenId": "REQ-CO-06.1",
+            "extracted": "Address validation. The system shall validate the shipping address against the postal service's address database."
+          },
+          {
+            "goldenId": "REQ-CO-06.2",
+            "extracted": "Save address to address book. The system shall save the validated address to the user's address book."
+          },
+          {
+            "goldenId": "REQ-CO-07",
+            "extracted": "Short checkout steps. The checkout should not take too many steps."
+          },
+          {
+            "goldenId": "REQ-CO-08",
+            "extracted": "Order summary display. Before payment, the system shall show an order summary listing each item, the subtotal, the delivery fee, and the order total."
+          },
+          {
+            "goldenId": "REQ-CO-09",
+            "extracted": "Card payment processing. The system shall process credit and debit card payments through a PCI-compliant third-party payment processor."
+          },
+          {
+            "goldenId": "REQ-CO-10",
+            "extracted": "Declined payment handling. If a payment is declined, the system shall show the decline reason returned by the payment processor."
+          },
+          {
+            "goldenId": "REQ-CO-11",
+            "extracted": "Fast payment processing. Payment processing should be fast."
+          },
+          {
+            "goldenId": "REQ-CO-12",
+            "extracted": "Free delivery threshold. The system shall charge no delivery fee for orders with a subtotal of •50.00 or more, and a flat delivery fee of •4.95 for orders below •50.00."
+          },
+          {
+            "goldenId": "REQ-CO-13",
+            "extracted": "Estimated delivery date. The system shall display an estimated delivery date based on the shipping method the user selects."
+          },
+          {
+            "goldenId": "REQ-CO-14",
+            "extracted": "Order confirmation email. The system shall send an order confirmation email with an itemized receipt within 5 minutes of a successful payment."
+          },
+          {
+            "goldenId": "REQ-CO-15",
+            "extracted": "Smooth Checkout Experience. The checkout experience shall be smooth and intuitive."
+          }
+        ],
+        "missedRequirements": [],
+        "unmatchedExtracted": [],
+        "ambiguity": {
+          "truePositives": [
+            "REQ-CO-07",
+            "REQ-CO-11",
+            "REQ-CO-15"
+          ],
+          "falsePositives": [],
+          "falseNegatives": []
+        },
+        "boundaries": [
+          {
+            "id": "CO-B1",
+            "value": "quantity 1–10",
+            "covered": true
+          },
+          {
+            "id": "CO-B2",
+            "value": "€50.00 delivery threshold",
+            "covered": false
+          }
+        ],
+        "forbiddenOutput": []
+      }
+    },
+    {
+      "spec": "login-account-spec.md",
+      "ok": true,
+      "error": null,
+      "metrics": {
+        "requirementRecall": 1,
+        "requirementPrecision": 1,
+        "ambiguityPrecision": 1,
+        "ambiguityRecall": 1,
+        "boundaryCoverage": 1,
+        "grounding": 1,
+        "schemaValidity": 1
+      },
+      "usage": {
+        "inputTokens": 5809,
+        "outputTokens": 5353,
+        "totalTokens": 11162
+      },
+      "costUsd": 0.0010207875,
+      "durationMs": 61646,
+      "stepDurationsMs": {
+        "extract": 8297,
+        "ambiguity": 41983,
+        "tests": 11366
+      },
+      "modelCalls": 15,
+      "counts": {
+        "requirements": 18,
+        "testCases": 38
+      },
+      "details": {
+        "matched": [
+          {
+            "goldenId": "REQ-LA-01",
+            "extracted": "Email and password login. The system shall allow a registered user to log in using their email address and password."
+          },
+          {
+            "goldenId": "REQ-LA-02",
+            "extracted": "Account lockout after failed login attempts. The system shall lock a user's account for 15 minutes after 5 consecutive failed login attempts within a 10-minute window."
+          },
+          {
+            "goldenId": "REQ-LA-03",
+            "extracted": "Locked-account message. When an account is locked, the system shall show a message stating that the account is temporarily locked and the time at which the user may try again."
+          },
+          {
+            "goldenId": "REQ-LA-04",
+            "extracted": "Generic login error message. The system shall display a generic \"invalid email or password\" error message when login fails, without indicating whether the email address or the password was incorrect."
+          },
+          {
+            "goldenId": "REQ-LA-05",
+            "extracted": "Remember me option. The system shall offer a \"Remember me\" option that keeps the user logged in on that device for 30 days."
+          },
+          {
+            "goldenId": "REQ-LA-06",
+            "extracted": "Required registration fields. The system shall require a valid email address, a password, and the user's full name to create a new account."
+          },
+          {
+            "goldenId": "REQ-LA-07",
+            "extracted": "Email verification for new accounts. The system shall keep a new account unverified until the user clicks the confirmation link in the verification email sent to the address provided at registration."
+          },
+          {
+            "goldenId": "REQ-LA-08",
+            "extracted": "Duplicate email prevention. The system shall reject a registration that uses an email address already associated with an existing account, and direct the user to log in or reset their password instead."
+          },
+          {
+            "goldenId": "REQ-LA-09",
+            "extracted": "Easy registration. Registration should be quick and easy for new users."
+          },
+          {
+            "goldenId": "REQ-LA-10",
+            "extracted": "Password complexity. The system shall require new passwords to be at least 12 characters long and to contain at least one digit and one symbol."
+          },
+          {
+            "goldenId": "REQ-LA-11.1",
+            "extracted": "Password reset email. The system shall send a password reset link to the user's registered email address on request."
+          },
+          {
+            "goldenId": "REQ-LA-11.2",
+            "extracted": "Session invalidation on password change. The system shall end all of the user's other active sessions when the password is changed."
+          },
+          {
+            "goldenId": "REQ-LA-12",
+            "extracted": "Reset link expiry. A password reset link shall expire 24 hours after it is sent."
+          },
+          {
+            "goldenId": "REQ-LA-13",
+            "extracted": "Password reuse prevention. The system shall prevent a user from reusing any of their 3 most recent passwords."
+          },
+          {
+            "goldenId": "REQ-LA-14",
+            "extracted": "Two-factor authentication. The system shall allow a user to enable two-factor authentication (2FA) using a time-based one-time password (TOTP) authenticator app."
+          },
+          {
+            "goldenId": "REQ-LA-15",
+            "extracted": "Protection against common attacks. The system should be secure against common attacks."
+          },
+          {
+            "goldenId": "REQ-LA-16",
+            "extracted": "Login audit log recording. The system shall record every successful and failed login attempt in an audit log with the timestamp, the email address used, and the source IP address."
+          },
+          {
+            "goldenId": "REQ-LA-17",
+            "extracted": "Session timeout. User sessions should time out after a reasonable period of inactivity."
+          }
+        ],
+        "missedRequirements": [],
+        "unmatchedExtracted": [],
+        "ambiguity": {
+          "truePositives": [
+            "REQ-LA-09",
+            "REQ-LA-15",
+            "REQ-LA-17"
+          ],
+          "falsePositives": [],
+          "falseNegatives": []
+        },
+        "boundaries": [
+          {
+            "id": "LA-B1",
+            "value": "5 failed logins",
+            "covered": true
+          },
+          {
+            "id": "LA-B2",
+            "value": "12-character passwords",
+            "covered": true
+          },
+          {
+            "id": "LA-B3",
+            "value": "24-hour link expiry",
+            "covered": true
+          }
+        ],
+        "forbiddenOutput": []
+      }
+    }
+  ]
+}
