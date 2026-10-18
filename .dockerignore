@@ -44,3 +44,4 @@ evals/results/*
 Dockerfile
 .dockerignore
 *.log
+render.yaml

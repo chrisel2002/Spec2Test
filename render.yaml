@@ -1,0 +1,62 @@
+# Render Blueprint: one free Docker web service in Frankfurt.
+# https://render.com/docs/blueprint-spec
+#
+# No secret values in this file. Every secret is listed with `sync: false`,
+# which makes Render ask for it in the dashboard when the Blueprint is
+# first created; the value is stored in Render, never in Git. (Render only
+# asks on first creation: a secret added here later must also be added by
+# hand under the service's Environment tab.)
+#
+# The database (Neon) is not defined here: Render's own free Postgres
+# expires after 30 days, Neon's free tier doesn't. Migrations run from a
+# laptop with `pnpm db:migrate:prod` before a deploy that needs them, not
+# on container start.
+
+services:
+  - type: web
+    name: spec2test
+    runtime: docker
+    # Set explicitly: a Blueprint service without a plan gets a paid one.
+    plan: free
+    region: frankfurt
+    branch: main
+    dockerfilePath: ./Dockerfile
+    # Render waits for this to answer 200 before routing traffic to a new
+    # deploy; it also checks that the database is reachable.
+    healthCheckPath: /api/health
+    # Deploy a commit to main only once its GitHub Actions checks pass.
+    autoDeployTrigger: checksPass
+    # On a deploy or restart, how long Render waits after SIGTERM before
+    # killing the old instance. Next.js finishes pending after() work (where
+    # agent runs execute) before exiting, so a longer window lets a run in
+    # progress complete; one that doesn't is shown as failed with Retry.
+    maxShutdownDelaySeconds: 120
+    envVars:
+      # Secrets: Render prompts for these.
+      - key: DATABASE_URL # Neon's pooled connection string
+        sync: false
+      - key: GOOGLE_GENERATIVE_AI_API_KEY
+        sync: false
+      - key: ELEVENLABS_API_KEY # optional: leave empty to turn voice off
+        sync: false
+      - key: ACCESS_CODE # demo mode: the code for uploads, runs, chat, voice
+        sync: false
+      # Public, but specific to the person deploying, so also prompted for.
+      - key: ACCESS_CODE_CONTACT # completes "To get a code, ..."
+        sync: false
+
+      # Plain configuration (see .env.example for what each does).
+      - key: MODEL_PROVIDER
+        value: google
+      - key: MODEL_NAME
+        value: gemini-flash-lite-latest
+      - key: EMBEDDING_PROVIDER
+        value: google
+      - key: EMBEDDING_MODEL
+        value: gemini-embedding-001
+      - key: EMBEDDING_DIMENSIONS
+        value: "768"
+      - key: EMBEDDING_RPM_LIMIT
+        value: "80"
+      - key: RATE_LIMITS
+        value: "on"
