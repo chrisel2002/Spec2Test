@@ -1,0 +1,46 @@
+# Keep secrets, local state, and anything the build regenerates out of the
+# Docker build context. Smaller context, faster builds, and no chance of an
+# .env file ending up inside an image.
+
+# Secrets and local config: every .env file, including .env.example (the
+# image doesn't need it).
+.env*
+
+# Dependencies and build output (installed and built inside the image)
+node_modules
+.next
+.next-e2e
+dist
+
+# Tests, test tooling, and the eval harness. `next build` type-checks every
+# file in the context, so tooling that's left out must take its configs
+# with it. CI type-checks and tests all of it instead.
+tests
+test-results
+playwright-report
+coverage
+playwright.config.ts
+vitest*.mts
+knip.json
+scripts
+# Of evals/, the image only needs what the Insights page imports at build
+# time: the latest real result and the schema that validates it.
+evals/*
+!evals/lib
+evals/lib/*
+!evals/lib/results.ts
+!evals/results
+evals/results/*
+!evals/results/latest.json
+*.tsbuildinfo
+
+# Version control, editors, tooling
+.git
+.github
+.vscode
+.idea
+.claude
+.mcp.json
+Dockerfile
+.dockerignore
+*.log
