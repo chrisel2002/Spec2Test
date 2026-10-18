@@ -5,9 +5,11 @@ import { expect, type Locator, type Page, test } from "@playwright/test";
 // pauses for review, approve one test, edit another, build the matrix, and
 // check the matrix reflects exactly those decisions.
 //
-// With the mock, sample-specs/checkout.md yields 10 requirements, 3 of
-// them ambiguous (REQ-06 "fast", REQ-08 "reasonable", REQ-10 "intuitive"),
-// and 2 tests per requirement: a positive one first, then a negative one.
+// With the mock, sample-specs/checkout-spec.md yields 15 requirements, 2 of
+// them flagged ambiguous (REQ-11 "fast", REQ-15 "intuitive"; the mock's
+// keyword list misses REQ-07 "too many steps", which the real model should
+// catch), and 2 tests per requirement: a positive one first, then a
+// negative one.
 
 function requirementCard(page: Page, code: string): Locator {
   return page.locator(`[data-testid="requirement-card"][data-code="${code}"]`);
@@ -24,8 +26,8 @@ test("reviews generated tests and builds the traceability matrix", async ({ page
   await page.goto("/");
   await page.getByLabel("Reviewing as").fill("E2E Reviewer");
 
-  await page.setInputFiles("#spec-upload", "sample-specs/checkout.md");
-  await expect(page.getByRole("heading", { name: "checkout.md" })).toBeVisible({
+  await page.setInputFiles("#spec-upload", "sample-specs/checkout-spec.md");
+  await expect(page.getByRole("heading", { name: "checkout-spec.md" })).toBeVisible({
     timeout: 30_000,
   });
 
@@ -40,7 +42,7 @@ test("reviews generated tests and builds the traceability matrix", async ({ page
     "waiting_for_review",
     { timeout: 60_000 },
   );
-  await expect(page.getByTestId("requirement-card")).toHaveCount(10);
+  await expect(page.getByTestId("requirement-card")).toHaveCount(15);
   await expect(page.getByTestId("step-build_matrix")).toHaveAttribute("data-state", "review");
 
   // Approve the first test of REQ-01.
@@ -56,7 +58,7 @@ test("reviews generated tests and builds the traceability matrix", async ({ page
   await expand(req2);
   const edited = req2.getByTestId("test-case").nth(1);
   await edited.getByRole("button", { name: /^Edit/ }).click();
-  await edited.getByLabel("Title").fill("Cart is empty for a brand-new session");
+  await edited.getByLabel("Title").fill("Quantity 11 is refused");
   // The form validates with the shared Zod schema before anything is sent.
   await edited.getByLabel("Then").fill("");
   await edited.getByRole("button", { name: "Save and approve" }).click();
@@ -66,8 +68,8 @@ test("reviews generated tests and builds the traceability matrix", async ({ page
   await expect(edited).toHaveAttribute("data-status", "approved");
   await expect(edited.getByText("the cart shows no items")).toBeVisible();
 
-  // 2 of 7 testable requirements (10 minus 3 ambiguous) now have an approved test.
-  await expect(page.getByTestId("coverage-percent")).toHaveText("29%");
+  // 2 of 13 testable requirements (15 minus 2 ambiguous) now have an approved test.
+  await expect(page.getByTestId("coverage-percent")).toHaveText("15%");
 
   // Exports wait for the signed-off run, and say why.
   await page.getByRole("tab", { name: "Traceability matrix" }).click();
@@ -89,7 +91,7 @@ test("reviews generated tests and builds the traceability matrix", async ({ page
   for await (const chunk of csv) chunks.push(chunk as Buffer);
   const bytes = Buffer.concat(chunks);
   expect(bytes.subarray(0, 3)).toEqual(Buffer.from([0xef, 0xbb, 0xbf]));
-  expect(bytes.toString("utf8")).toContain("Cart is empty for a brand-new session");
+  expect(bytes.toString("utf8")).toContain("Quantity 11 is refused");
 
   // The matrix shows exactly the statuses we set.
   const row = (code: string) =>
@@ -102,16 +104,16 @@ test("reviews generated tests and builds the traceability matrix", async ({ page
   await expect(row("REQ-02")).toHaveAttribute("data-gap", "none");
   await expect(
     row("REQ-02").locator('[data-testid="matrix-test"][data-status="approved"]'),
-  ).toHaveText(/Cart is empty for a brand-new session/);
+  ).toHaveText(/Quantity 11 is refused/);
 
   await expect(row("REQ-03")).toHaveAttribute("data-gap", "no_approved_tests");
-  await expect(row("REQ-06")).toHaveAttribute("data-gap", "unresolved_ambiguity");
+  await expect(row("REQ-11")).toHaveAttribute("data-gap", "unresolved_ambiguity");
 
   // Filters: only the two approved tests' rows, then only the gaps.
   await page.getByRole("button", { name: "Approved", exact: true }).click();
   await expect(page.getByTestId("matrix-row")).toHaveCount(2);
   await page.getByRole("button", { name: "All", exact: true }).click();
   await page.getByLabel("Gaps only").check();
-  await expect(page.getByTestId("matrix-row")).toHaveCount(8);
+  await expect(page.getByTestId("matrix-row")).toHaveCount(13);
   await expect(row("REQ-01")).toHaveCount(0);
 });

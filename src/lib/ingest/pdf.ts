@@ -4,7 +4,8 @@ import { normalizeLineEndings } from "./text";
 import type { ParsedDocument } from "./types";
 
 const SECTION_HEADING = /^\d+\.\s+\S/;
-const REQUIREMENT_HEADING = /^REQ-[\w.]+:\s/;
+// "REQ-1.2:" and "REQ-LA-02:" alike.
+const REQUIREMENT_HEADING = /^REQ-[\w.-]+:\s/;
 
 // PDF text has no semantic heading markup, so headings are detected by
 // matching the numbering conventions used in our requirement-spec sample

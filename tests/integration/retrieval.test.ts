@@ -13,10 +13,10 @@ let documentId: string | undefined;
 
 beforeAll(async () => {
   const data = readFileSync(
-    join(process.cwd(), "sample-specs/login-and-account.md"),
+    join(process.cwd(), "sample-specs/login-account-spec.md"),
   );
   const result = await ingestDocument({
-    filename: "login-and-account.md",
+    filename: "login-account-spec.md",
     mimeType: "text/markdown",
     data,
   });

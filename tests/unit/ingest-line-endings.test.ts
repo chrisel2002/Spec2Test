@@ -10,7 +10,7 @@ import { normalizeLineEndings } from "@/lib/ingest/text";
 // The sample spec with LF endings whatever the checkout used, then the
 // same text saved by Windows (CRLF) and by classic Mac OS (CR).
 const lf = normalizeLineEndings(
-  readFileSync(join(process.cwd(), "sample-specs/login-and-account.md"), "utf8"),
+  readFileSync(join(process.cwd(), "sample-specs/login-account-spec.md"), "utf8"),
 );
 const crlf = lf.replace(/\n/g, "\r\n");
 const cr = lf.replace(/\n/g, "\r");

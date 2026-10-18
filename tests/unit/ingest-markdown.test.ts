@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 import { parseMarkdown } from "@/lib/ingest/markdown";
 
 const source = readFileSync(
-  join(process.cwd(), "sample-specs/login-and-account.md"),
+  join(process.cwd(), "sample-specs/login-account-spec.md"),
   "utf8",
 );
 
@@ -23,7 +23,7 @@ describe("parseMarkdown", () => {
       text: "Login and Account Management — Requirements Specification",
     });
     expect(headings.filter((h) => h.level === 2)).toHaveLength(5);
-    expect(headings.filter((h) => h.level === 3)).toHaveLength(13);
+    expect(headings.filter((h) => h.level === 3)).toHaveLength(17);
   });
 
   it("points charIndex at the heading's line in the text", () => {
@@ -35,7 +35,7 @@ describe("parseMarkdown", () => {
     expect(lockout).toBeDefined();
     expect(
       text.slice(lockout!.charIndex, lockout!.charIndex + 20),
-    ).toBe("### REQ-1.2: Account");
+    ).toBe("### REQ-LA-02: Accou");
   });
 
   it("normalizes CRLF line endings to LF", () => {

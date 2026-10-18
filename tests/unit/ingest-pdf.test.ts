@@ -14,14 +14,14 @@ let parsed: ParsedDocument;
 
 beforeAll(async () => {
   const data = new Uint8Array(
-    readFileSync(join(process.cwd(), "sample-specs/login-and-account.pdf")),
+    readFileSync(join(process.cwd(), "sample-specs/login-account-spec.pdf")),
   );
   parsed = await parsePdf(data);
 });
 
 describe("parsePdf", () => {
   it("extracts all pages", () => {
-    expect(parsed.pages).toHaveLength(2);
+    expect(parsed.pages).toHaveLength(3);
     expect(parsed.pages[0]).toMatchObject({ pageNumber: 1, charIndex: 0 });
     expect(parsed.pages[1].pageNumber).toBe(2);
   });
@@ -34,7 +34,7 @@ describe("parsePdf", () => {
       (h) => h.text === "1. Authentication",
     );
     const requirement = parsed.headings.find((h) =>
-      h.text.startsWith("REQ-1.2:"),
+      h.text.startsWith("REQ-LA-02:"),
     );
 
     expect(title?.level).toBe(1);
@@ -50,16 +50,18 @@ describe("parsePdf", () => {
     expect(falsePositive).toBeUndefined();
   });
 
-  it("assigns the correct page number to a heading on page 2", () => {
+  it("assigns the correct page number to a heading on a later page", () => {
     const security = parsed.headings.find(
       (h) => h.text === "4. Account Security",
     );
 
-    expect(security?.page).toBe(2);
+    expect(security?.page).toBe(3);
   });
 
   it("includes requirement body text for retrieval", () => {
-    expect(parsed.text).toContain(
+    // PDF text wraps wherever the page layout did, so compare with line
+    // breaks collapsed to spaces.
+    expect(parsed.text.replace(/\s+/g, " ")).toContain(
       "lock a user's account for 15 minutes after 5 consecutive failed login attempts",
     );
   });

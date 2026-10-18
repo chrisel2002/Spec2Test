@@ -9,7 +9,7 @@ import { chunks, documents } from "@/lib/db/schema";
 import { ingestDocument } from "@/lib/ingest/pipeline";
 
 const data = readFileSync(
-  join(process.cwd(), "sample-specs/login-and-account.md"),
+  join(process.cwd(), "sample-specs/login-account-spec.md"),
 );
 
 let documentId: string | undefined;
@@ -23,7 +23,7 @@ afterAll(async () => {
 describe("ingestDocument", () => {
   it("parses, chunks, embeds, and stores a document", async () => {
     const result = await ingestDocument({
-      filename: "login-and-account.md",
+      filename: "login-account-spec.md",
       mimeType: "text/markdown",
       data,
     });
@@ -46,7 +46,7 @@ describe("ingestDocument", () => {
 
   it("is idempotent: re-ingesting the same bytes does not duplicate chunks", async () => {
     const result = await ingestDocument({
-      filename: "login-and-account.md",
+      filename: "login-account-spec.md",
       mimeType: "text/markdown",
       data,
     });

@@ -5,11 +5,11 @@ test("uploading a spec shows it in the document list", async ({ page }) => {
 
   await page.setInputFiles(
     'input[type="file"]',
-    "sample-specs/login-and-account.md",
+    "sample-specs/login-account-spec.md",
   );
 
   const documentRow = page.locator("aside li", {
-    hasText: "login-and-account.md",
+    hasText: "login-account-spec.md",
   });
   await expect(documentRow).toBeVisible({ timeout: 15000 });
   await expect(documentRow.getByText(/\d+ chunks/)).toBeVisible();

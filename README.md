@@ -103,7 +103,7 @@ There is deliberately no tool to approve tests or build the matrix. When a
 run pauses for review, `get_run_status` returns `waiting_for_review` with
 the link to the review screen, and the agent hands it to you:
 
-> **You:** Ingest sample-specs/login-and-account.md, start a run, and tell
+> **You:** Ingest sample-specs/login-account-spec.md, start a run, and tell
 > me which requirements are ambiguous.
 >
 > **Claude:** *(calls `ingest_spec`, `start_run`, polls `get_run_status`,

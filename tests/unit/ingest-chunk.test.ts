@@ -10,15 +10,15 @@ import type { ParsedDocument } from "@/lib/ingest/types";
 
 describe("chunkDocument on the login Markdown spec", () => {
   const source = readFileSync(
-    join(process.cwd(), "sample-specs/login-and-account.md"),
+    join(process.cwd(), "sample-specs/login-account-spec.md"),
     "utf8",
   );
   const parsed = parseMarkdown(source);
   const chunks = chunkDocument(parsed);
 
   it("produces one chunk per heading, since every section is short", () => {
-    // 1 title + 5 section headings + 13 requirement headings
-    expect(chunks).toHaveLength(19);
+    // 1 title + 5 section headings + 17 requirement headings
+    expect(chunks).toHaveLength(23);
   });
 
   it("attaches the nearest heading, its level, and no page (Markdown has none)", () => {
@@ -50,19 +50,19 @@ describe("chunkDocument on the login PDF spec", () => {
 
   beforeAll(async () => {
     const data = new Uint8Array(
-      readFileSync(join(process.cwd(), "sample-specs/login-and-account.pdf")),
+      readFileSync(join(process.cwd(), "sample-specs/login-account-spec.pdf")),
     );
     chunks = chunkDocument(await parsePdf(data));
   });
 
   it("attaches the PDF page number to each chunk", () => {
     const lockout = chunks.find((c) =>
-      c.heading?.startsWith("REQ-1.2:"),
+      c.heading?.startsWith("REQ-LA-02:"),
     );
     const security = chunks.find((c) => c.heading === "4. Account Security");
 
     expect(lockout?.page).toBe(1);
-    expect(security?.page).toBe(2);
+    expect(security?.page).toBe(3);
   });
 });
 
