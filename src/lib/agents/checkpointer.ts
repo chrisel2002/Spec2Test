@@ -4,6 +4,7 @@ import { PostgresSaver } from "@langchain/langgraph-checkpoint-postgres";
 import { sql } from "drizzle-orm";
 
 import { db } from "@/lib/db/client";
+import { postgresConfig } from "@/lib/db/connection";
 import { requireEnv } from "@/lib/env";
 
 // LangGraph saves a checkpoint (the full graph state plus which node runs
@@ -25,7 +26,7 @@ const globalForCheckpointer = globalThis as unknown as {
 
 async function createCheckpointer(): Promise<PostgresSaver> {
   await db.execute(sql.raw(`CREATE SCHEMA IF NOT EXISTS ${SCHEMA}`));
-  const saver = PostgresSaver.fromConnString(requireEnv("DATABASE_URL"), {
+  const saver = PostgresSaver.fromConnString(postgresConfig(requireEnv("DATABASE_URL")).url, {
     schema: SCHEMA,
   });
   await saver.setup();
