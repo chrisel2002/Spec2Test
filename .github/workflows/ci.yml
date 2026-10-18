@@ -29,14 +29,21 @@ jobs:
       - name: Generate Next.js route types
         run: pnpm exec next typegen
 
-      - name: Lint
-        run: pnpm exec eslint .
+      - name: Lint (no warnings allowed)
+        run: pnpm exec eslint . --max-warnings 0
 
       - name: Type-check
         run: pnpm type-check
 
-      - name: Unit tests
-        run: pnpm test
+      # Unit tests with coverage of src/lib/; fails below the thresholds in
+      # vitest.config.mts (modules that need a database are covered by the
+      # MCP and e2e jobs instead, and excluded there).
+      - name: Unit tests with coverage
+        run: pnpm test:coverage
+
+      # Unused files, exports, and dependencies (knip.json).
+      - name: Unused code
+        run: pnpm knip
 
       # The eval harness on the deterministic mock model: no API key, no
       # database. Fails the build if any metric drops below the thresholds
