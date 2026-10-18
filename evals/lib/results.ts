@@ -123,8 +123,10 @@ function describeChange(a: number | null, b: number | null): string {
 }
 
 function signed(value: number, digits = 0): string {
-  const text = value.toFixed(digits);
-  return value > 0 ? `+${text}` : text;
+  const rounded = Number(value.toFixed(digits));
+  // Avoid "-0.0" for differences too small to show.
+  if (rounded === 0) return (0).toFixed(digits);
+  return rounded > 0 ? `+${rounded.toFixed(digits)}` : rounded.toFixed(digits);
 }
 
 function renderTable(rows: string[][]): string {

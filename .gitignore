@@ -47,3 +47,6 @@ next-env.d.ts
 
 # generated audio from scripts/
 /output/
+
+# eval runs with the mock model (CI and local checks); real runs are committed
+/evals/results/mock/

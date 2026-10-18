@@ -12,6 +12,8 @@
     "test:integration": "dotenv -e .env.local -- vitest run --config vitest.integration.config.mts",
     "test:e2e": "playwright test",
     "test:mcp": "vitest run --config vitest.mcp.config.mts",
+    "eval": "dotenv -e .env.local -- tsx evals/run.ts",
+    "eval:mock": "tsx evals/run.ts --mock --check",
     "db:generate": "dotenv -e .env.local -- drizzle-kit generate",
     "db:migrate": "dotenv -e .env.local -- drizzle-kit migrate",
     "tts:hello": "dotenv -e .env.local -- tsx scripts/tts-hello.ts",
