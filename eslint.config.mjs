@@ -10,6 +10,9 @@ const eslintConfig = defineConfig([
     // Default ignores of eslint-config-next:
     ".next/**",
     ".next-e2e/**",
+    // Generated output: the coverage report and the compiled MCP server.
+    "coverage/**",
+    "dist/**",
     "out/**",
     "build/**",
     "next-env.d.ts",

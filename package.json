@@ -19,7 +19,9 @@
     "db:generate": "dotenv -e .env.local -- drizzle-kit generate",
     "db:migrate": "dotenv -e .env.local -- drizzle-kit migrate",
     "tts:hello": "dotenv -e .env.local -- tsx scripts/tts-hello.ts",
-    "mcp": "node --conditions=react-server --import tsx src/mcp/main.ts"
+    "mcp:build": "esbuild src/mcp/main.ts --bundle --platform=node --format=esm --target=node20 --packages=external --alias:server-only=./node_modules/server-only/empty.js --outfile=dist/mcp/main.mjs",
+    "mcp": "node dist/mcp/main.mjs",
+    "prepare": "pnpm run mcp:build"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.71",
@@ -56,6 +58,7 @@
     "@vitest/coverage-v8": "5.0.3",
     "dotenv-cli": "^11.0.0",
     "drizzle-kit": "^0.31.11",
+    "esbuild": "0.28.2",
     "eslint": "^9",
     "eslint-config-next": "16.3.8",
     "knip": "^6.41.0",

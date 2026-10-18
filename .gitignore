@@ -50,3 +50,6 @@ next-env.d.ts
 
 # eval runs with the mock model (CI and local checks); real runs are committed
 /evals/results/mock/
+
+# compiled MCP server (pnpm mcp:build; built on pnpm install)
+/dist/

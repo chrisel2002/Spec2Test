@@ -98,6 +98,10 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # The stdio test starts the compiled server, as Claude Code does.
+      - name: Build the MCP server
+        run: pnpm mcp:build
+
       - name: MCP server tests
         run: pnpm test:mcp
 
