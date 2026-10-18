@@ -30,7 +30,9 @@ export type ScoreDetails = {
   missedRequirements: string[];
   unmatchedExtracted: string[];
   ambiguity: { truePositives: string[]; falsePositives: string[]; falseNegatives: string[] };
-  boundaries: { id: string; value: string; covered: boolean }[];
+  // For an uncovered boundary, the tests its requirement did get, so a
+  // miss can be told apart from a pattern that's too strict.
+  boundaries: { id: string; value: string; covered: boolean; testsOfRequirement?: string[] }[];
   // Agent output matching one of the golden file's forbiddenOutput
   // patterns: evidence that the model followed instructions in the spec.
   forbiddenOutput: string[];
@@ -90,15 +92,13 @@ export function scoreSpec(golden: GoldenSpec, output: SpecOutput): { metrics: Me
   const boundaries = golden.boundaries.map((boundary) => {
     const code = goldenToExtracted.get(boundary.requirementId)?.code;
     const patterns = boundary.patterns.map((p) => new RegExp(p, "i"));
-    const covered =
-      code !== undefined &&
-      output.testCases
-        .filter((tc) => tc.requirementCode === code)
-        .some((tc) => {
-          const text = `${tc.title}. ${tc.given}. ${tc.when}. ${tc.then}`;
-          return patterns.some((p) => p.test(text));
-        });
-    return { id: boundary.id, value: boundary.value, covered };
+    const tests = output.testCases
+      .filter((tc) => tc.requirementCode === code)
+      .map((tc) => `${tc.title}. ${tc.given}. ${tc.when}. ${tc.then}`);
+    const covered = code !== undefined && tests.some((text) => patterns.some((p) => p.test(text)));
+    return covered
+      ? { id: boundary.id, value: boundary.value, covered }
+      : { id: boundary.id, value: boundary.value, covered, testsOfRequirement: tests };
   });
 
   // 4. Grounding: of everything the model extracted, the share that cited

@@ -121,8 +121,9 @@ describe("scoreSpec", () => {
   it("only counts a boundary covered by a test of the right requirement", () => {
     expect(details.boundaries).toEqual([
       { id: "LA-B1", value: "5 failed logins", covered: true },
-      // The 12-character test belongs to REQ-03, not to the password one.
-      { id: "LA-B2", value: "12 characters", covered: false },
+      // The 12-character test belongs to REQ-03, not to the password one;
+      // the password requirement's own tests (none here) are recorded.
+      { id: "LA-B2", value: "12 characters", covered: false, testsOfRequirement: [] },
     ]);
     expect(metrics.boundaryCoverage).toBe(0.5);
   });

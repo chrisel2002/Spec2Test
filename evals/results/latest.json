@@ -1,5 +1,5 @@
 {
-  "createdAt": "2026-10-18T14:54:02.261Z",
+  "createdAt": "2026-10-18T15:04:17.711Z",
   "model": {
     "provider": "google",
     "name": "gemini-flash-lite-latest"
@@ -16,26 +16,26 @@
         "requirementPrecision": 1,
         "ambiguityPrecision": 1,
         "ambiguityRecall": 1,
-        "boundaryCoverage": 0.5,
+        "boundaryCoverage": 1,
         "grounding": 1,
         "schemaValidity": 1
       },
       "usage": {
-        "inputTokens": 5452,
-        "outputTokens": 4577,
-        "totalTokens": 10029
+        "inputTokens": 5451,
+        "outputTokens": 4484,
+        "totalTokens": 9935
       },
-      "costUsd": 0.0008910000000000001,
-      "durationMs": 50545,
+      "costUsd": 0.0008770125,
+      "durationMs": 50552,
       "stepDurationsMs": {
-        "extract": 5348,
-        "ambiguity": 34812,
-        "tests": 10385
+        "extract": 5389,
+        "ambiguity": 3786,
+        "tests": 41376
       },
       "modelCalls": 15,
       "counts": {
         "requirements": 16,
-        "testCases": 35
+        "testCases": 34
       },
       "details": {
         "matched": [
@@ -65,11 +65,11 @@
           },
           {
             "goldenId": "REQ-CO-06.2",
-            "extracted": "Save address to address book. The system shall save the validated address to the user's address book."
+            "extracted": "Save validated address to address book. The system shall save the validated address to the user's address book."
           },
           {
             "goldenId": "REQ-CO-07",
-            "extracted": "Short checkout steps. The checkout should not take too many steps."
+            "extracted": "Short checkout. The checkout should not take too many steps."
           },
           {
             "goldenId": "REQ-CO-08",
@@ -89,11 +89,11 @@
           },
           {
             "goldenId": "REQ-CO-12",
-            "extracted": "Free delivery threshold. The system shall charge no delivery fee for orders with a subtotal of •50.00 or more, and a flat delivery fee of •4.95 for orders below •50.00."
+            "extracted": "Free delivery threshold. The system shall charge no delivery fee for orders with a subtotal of €50.00 or more, and a flat delivery fee of €4.95 for orders below €50.00."
           },
           {
             "goldenId": "REQ-CO-13",
-            "extracted": "Estimated delivery date. The system shall display an estimated delivery date based on the shipping method the user selects."
+            "extracted": "Estimated delivery date display. The system shall display an estimated delivery date based on the shipping method the user selects."
           },
           {
             "goldenId": "REQ-CO-14",
@@ -124,7 +124,7 @@
           {
             "id": "CO-B2",
             "value": "€50.00 delivery threshold",
-            "covered": false
+            "covered": true
           }
         ],
         "forbiddenOutput": []
@@ -144,21 +144,21 @@
         "schemaValidity": 1
       },
       "usage": {
-        "inputTokens": 5809,
-        "outputTokens": 5353,
-        "totalTokens": 11162
+        "inputTokens": 5796,
+        "outputTokens": 4601,
+        "totalTokens": 10397
       },
-      "costUsd": 0.0010207875,
-      "durationMs": 61646,
+      "costUsd": 0.0009074999999999999,
+      "durationMs": 25938,
       "stepDurationsMs": {
-        "extract": 8297,
-        "ambiguity": 41983,
-        "tests": 11366
+        "extract": 5969,
+        "ambiguity": 3570,
+        "tests": 16399
       },
       "modelCalls": 15,
       "counts": {
         "requirements": 18,
-        "testCases": 38
+        "testCases": 37
       },
       "details": {
         "matched": [
@@ -180,7 +180,7 @@
           },
           {
             "goldenId": "REQ-LA-05",
-            "extracted": "Remember me option. The system shall offer a \"Remember me\" option that keeps the user logged in on that device for 30 days."
+            "extracted": "Remember me functionality. The system shall offer a \"Remember me\" option that keeps the user logged in on that device for 30 days."
           },
           {
             "goldenId": "REQ-LA-06",
@@ -204,7 +204,7 @@
           },
           {
             "goldenId": "REQ-LA-11.1",
-            "extracted": "Password reset email. The system shall send a password reset link to the user's registered email address on request."
+            "extracted": "Password reset link generation. The system shall send a password reset link to the user's registered email address on request."
           },
           {
             "goldenId": "REQ-LA-11.2",
@@ -232,7 +232,7 @@
           },
           {
             "goldenId": "REQ-LA-17",
-            "extracted": "Session timeout. User sessions should time out after a reasonable period of inactivity."
+            "extracted": "Session timeout on inactivity. User sessions should time out after a reasonable period of inactivity."
           }
         ],
         "missedRequirements": [],

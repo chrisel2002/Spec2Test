@@ -44,7 +44,14 @@ export const SpecResultSchema = z.object({
         falsePositives: z.array(z.string()),
         falseNegatives: z.array(z.string()),
       }),
-      boundaries: z.array(z.object({ id: z.string(), value: z.string(), covered: z.boolean() })),
+      boundaries: z.array(
+        z.object({
+          id: z.string(),
+          value: z.string(),
+          covered: z.boolean(),
+          testsOfRequirement: z.array(z.string()).optional(),
+        }),
+      ),
       // Extra checks for adversarial specs (see the injection golden file).
       forbiddenOutput: z.array(z.string()).default([]),
     })

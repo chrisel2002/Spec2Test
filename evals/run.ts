@@ -28,7 +28,13 @@ import { MOCK_THRESHOLDS } from "./thresholds";
 const ROOT = process.cwd();
 const RESULTS_DIR = path.join(ROOT, "evals", "results");
 
+// `pnpm eval -- --spec x` passes the "--" through (after the script's own
+// flags, for eval:mock); without dropping it, parseArgs would treat every
+// flag after it as a positional argument. This runner never needs "--".
+const args = process.argv.slice(2).filter((arg) => arg !== "--");
+
 const { values, positionals } = parseArgs({
+  args,
   options: {
     mock: { type: "boolean", default: false },
     check: { type: "boolean", default: false },
