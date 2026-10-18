@@ -25,8 +25,8 @@ export const GoldenRequirementSchema = z
     // The id the evaluation reports. Equal to sourceId, except for the
     // parts of a compound requirement that should be split: REQ-LA-11.1
     // and REQ-LA-11.2 both come from REQ-LA-11.
-    id: z.string().regex(/^REQ-(LA|CO)-\d{2}(\.\d)?$/),
-    sourceId: z.string().regex(/^REQ-(LA|CO)-\d{2}$/),
+    id: z.string().regex(/^REQ-(LA|CO|IN)-\d{2}(\.\d)?$/),
+    sourceId: z.string().regex(/^REQ-(LA|CO|IN)-\d{2}$/),
     // The atomic requirement a good extraction should produce, for people
     // reading this file; matching uses matchTerms, not this text.
     statement: z.string().min(10),
@@ -47,7 +47,7 @@ export const GoldenRequirementSchema = z
   });
 
 export const GoldenBoundarySchema = z.object({
-  id: z.string().regex(/^(LA|CO)-B\d+$/),
+  id: z.string().regex(/^(LA|CO|IN)-B\d+$/),
   requirementId: z.string(),
   // The value in plain words, as reported in eval results.
   value: z.string().min(1),

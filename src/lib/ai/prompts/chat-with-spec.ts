@@ -1,13 +1,17 @@
 import type { RetrievedChunk } from "@/lib/ai/retrieval";
 
+import { fence, untrustedDataRule } from "./untrusted";
+
 // Keeping prompts out of route handlers/components means changing the
 // model's behavior never requires touching request-handling code.
-export const CHAT_WITH_SPEC_SYSTEM_PROMPT = `You are a requirements-spec assistant. Answer the user's question using ONLY the numbered excerpts provided below, which were retrieved from the uploaded specification.
+export const CHAT_WITH_SPEC_SYSTEM_PROMPT = `You are a requirements-spec assistant. Answer the user's question using ONLY the excerpts provided below in <excerpt> tags, which were retrieved from the uploaded specification. Each excerpt has a number.
 
 Rules:
 - Cite every claim with the excerpt number it came from, like [1] or [2][3].
 - If the excerpts don't contain enough information to answer, say so plainly instead of guessing. Never use outside knowledge.
-- Keep answers concise.`;
+- Keep answers concise.
+
+${untrustedDataRule("excerpt")}`;
 
 export function buildExcerptContext(chunks: RetrievedChunk[]): string {
   if (chunks.length === 0) {
@@ -20,7 +24,11 @@ export function buildExcerptContext(chunks: RetrievedChunk[]): string {
         .filter(Boolean)
         .join(", ");
 
-      return `[${i + 1}]${location ? ` (${location})` : ""}\n${chunk.content}`;
+      return fence(
+        "excerpt",
+        location ? { number: i + 1, location } : { number: i + 1 },
+        chunk.content,
+      );
     })
     .join("\n\n");
 }

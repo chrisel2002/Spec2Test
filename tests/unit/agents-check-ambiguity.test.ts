@@ -100,7 +100,7 @@ describe("checkAmbiguityForRequirements", () => {
 
   it("batches requirements in groups of 5", async () => {
     mockGenerateStructured.mockImplementation(async (opts) => {
-      const batchSize = (opts.prompt.match(/\d+\./g) ?? []).length;
+      const batchSize = (opts.prompt.match(/<requirement /g) ?? []).length;
       return {
         object: {
           results: Array.from({ length: batchSize }, () => ({

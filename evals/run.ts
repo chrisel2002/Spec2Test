@@ -23,7 +23,7 @@ import {
   type SpecResult,
   summaryTable,
 } from "./lib/results";
-import { MOCK_THRESHOLDS } from "./thresholds";
+import { MOCK_THRESHOLD_OVERRIDES, MOCK_THRESHOLDS } from "./thresholds";
 
 const ROOT = process.cwd();
 const RESULTS_DIR = path.join(ROOT, "evals", "results");
@@ -181,7 +181,7 @@ function updateLatest(result: EvalResult) {
 // CI gate for the mock run: the mock is deterministic, so any metric below
 // its threshold means a code change broke part of the pipeline.
 function checkThresholds(result: EvalResult) {
-  const failures = findThresholdFailures(result, MOCK_THRESHOLDS);
+  const failures = findThresholdFailures(result, MOCK_THRESHOLDS, MOCK_THRESHOLD_OVERRIDES);
   if (failures.length > 0) {
     console.error(`\nEval check failed:\n  ${failures.join("\n  ")}`);
     process.exit(1);

@@ -1,3 +1,5 @@
+import { fence, untrustedDataRule } from "./untrusted";
+
 export const EXTRACT_REQUIREMENTS_SYSTEM_PROMPT = `You are a requirements analyst extracting atomic requirements from a software specification document.
 
 Rules:
@@ -7,14 +9,16 @@ Rules:
 - Only split a sentence into separate requirements when it joins two genuinely independent capabilities with "and" — e.g. "the system shall log the attempt and lock the account" affects two different things (an audit log vs. account state), so split those. "Passwords must be 10 characters, contain a digit, and contain a symbol" is one validation rule with three conditions, so keep that as ONE requirement.
 - Skip section headings and introductory/descriptive text that states no obligation at all — but when in doubt about whether something is a requirement, extract it rather than skip it.
 - Every requirement must cite which given excerpt(s) it came from.
-- If an excerpt contains no requirements, extract nothing from it — do not fabricate one just to have something to return.`;
+- If an excerpt contains no requirements, extract nothing from it — do not fabricate one just to have something to return.
+
+${untrustedDataRule("document_excerpt")}`;
 
 export function buildExtractionPrompt(
   labeledChunks: { label: string; content: string }[],
 ): string {
   const excerpts = labeledChunks
-    .map(({ label, content }) => `[${label}]\n${content}`)
+    .map(({ label, content }) => fence("document_excerpt", { label }, content))
     .join("\n\n");
 
-  return `Extract atomic requirements from the following document excerpts.\n\n${excerpts}`;
+  return `Extract atomic requirements from the following document excerpts. Each is wrapped in <document_excerpt> tags; cite excerpts by their label.\n\n${excerpts}`;
 }

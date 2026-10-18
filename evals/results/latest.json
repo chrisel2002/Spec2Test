@@ -1,11 +1,11 @@
 {
-  "createdAt": "2026-10-18T15:04:17.711Z",
+  "createdAt": "2026-10-18T15:12:06.881Z",
   "model": {
     "provider": "google",
     "name": "gemini-flash-lite-latest"
   },
-  "promptVersion": "v2",
-  "promptHash": "3d74ac8f",
+  "promptVersion": "v3",
+  "promptHash": "4b68f494",
   "specs": [
     {
       "spec": "checkout-spec.md",
@@ -21,16 +21,16 @@
         "schemaValidity": 1
       },
       "usage": {
-        "inputTokens": 5451,
-        "outputTokens": 4484,
-        "totalTokens": 9935
+        "inputTokens": 7724,
+        "outputTokens": 4434,
+        "totalTokens": 12158
       },
-      "costUsd": 0.0008770125,
-      "durationMs": 50552,
+      "costUsd": 0.0009547499999999999,
+      "durationMs": 19935,
       "stepDurationsMs": {
-        "extract": 5389,
-        "ambiguity": 3786,
-        "tests": 41376
+        "extract": 5860,
+        "ambiguity": 3739,
+        "tests": 10334
       },
       "modelCalls": 15,
       "counts": {
@@ -61,7 +61,7 @@
           },
           {
             "goldenId": "REQ-CO-06.1",
-            "extracted": "Address validation. The system shall validate the shipping address against the postal service's address database."
+            "extracted": "Shipping address validation. The system shall validate the shipping address against the postal service's address database."
           },
           {
             "goldenId": "REQ-CO-06.2",
@@ -77,7 +77,7 @@
           },
           {
             "goldenId": "REQ-CO-09",
-            "extracted": "Card payment processing. The system shall process credit and debit card payments through a PCI-compliant third-party payment processor."
+            "extracted": "Card payment via PCI-compliant processor. The system shall process credit and debit card payments through a PCI-compliant third-party payment processor."
           },
           {
             "goldenId": "REQ-CO-10",
@@ -89,15 +89,15 @@
           },
           {
             "goldenId": "REQ-CO-12",
-            "extracted": "Free delivery threshold. The system shall charge no delivery fee for orders with a subtotal of €50.00 or more, and a flat delivery fee of €4.95 for orders below €50.00."
+            "extracted": "Free Delivery Threshold. The system shall charge no delivery fee for orders with a subtotal of €50.00 or more, and a flat delivery fee of €4.95 for orders below €50.00."
           },
           {
             "goldenId": "REQ-CO-13",
-            "extracted": "Estimated delivery date display. The system shall display an estimated delivery date based on the shipping method the user selects."
+            "extracted": "Estimated Delivery Date Display. The system shall display an estimated delivery date based on the shipping method the user selects."
           },
           {
             "goldenId": "REQ-CO-14",
-            "extracted": "Order confirmation email. The system shall send an order confirmation email with an itemized receipt within 5 minutes of a successful payment."
+            "extracted": "Order Confirmation Email. The system shall send an order confirmation email with an itemized receipt within 5 minutes of a successful payment."
           },
           {
             "goldenId": "REQ-CO-15",
@@ -144,21 +144,21 @@
         "schemaValidity": 1
       },
       "usage": {
-        "inputTokens": 5796,
-        "outputTokens": 4601,
-        "totalTokens": 10397
+        "inputTokens": 8117,
+        "outputTokens": 5197,
+        "totalTokens": 13314
       },
-      "costUsd": 0.0009074999999999999,
-      "durationMs": 25938,
+      "costUsd": 0.0010839375,
+      "durationMs": 27629,
       "stepDurationsMs": {
-        "extract": 5969,
-        "ambiguity": 3570,
-        "tests": 16399
+        "extract": 5821,
+        "ambiguity": 4198,
+        "tests": 17610
       },
       "modelCalls": 15,
       "counts": {
         "requirements": 18,
-        "testCases": 37
+        "testCases": 38
       },
       "details": {
         "matched": [
@@ -176,11 +176,11 @@
           },
           {
             "goldenId": "REQ-LA-04",
-            "extracted": "Generic login error message. The system shall display a generic \"invalid email or password\" error message when login fails, without indicating whether the email address or the password was incorrect."
+            "extracted": "Generic error message for invalid credentials. The system shall display a generic \"invalid email or password\" error message when login fails, without indicating whether the email address or the password was incorrect."
           },
           {
             "goldenId": "REQ-LA-05",
-            "extracted": "Remember me functionality. The system shall offer a \"Remember me\" option that keeps the user logged in on that device for 30 days."
+            "extracted": "Remember me option. The system shall offer a \"Remember me\" option that keeps the user logged in on that device for 30 days."
           },
           {
             "goldenId": "REQ-LA-06",
@@ -188,11 +188,11 @@
           },
           {
             "goldenId": "REQ-LA-07",
-            "extracted": "Email verification for new accounts. The system shall keep a new account unverified until the user clicks the confirmation link in the verification email sent to the address provided at registration."
+            "extracted": "Email verification. The system shall keep a new account unverified until the user clicks the confirmation link in the verification email sent to the address provided at registration."
           },
           {
             "goldenId": "REQ-LA-08",
-            "extracted": "Duplicate email prevention. The system shall reject a registration that uses an email address already associated with an existing account, and direct the user to log in or reset their password instead."
+            "extracted": "Duplicate email prevention during registration. The system shall reject a registration that uses an email address already associated with an existing account, and direct the user to log in or reset their password instead."
           },
           {
             "goldenId": "REQ-LA-09",
@@ -200,11 +200,11 @@
           },
           {
             "goldenId": "REQ-LA-10",
-            "extracted": "Password complexity. The system shall require new passwords to be at least 12 characters long and to contain at least one digit and one symbol."
+            "extracted": "Password complexity requirements. The system shall require new passwords to be at least 12 characters long and to contain at least one digit and one symbol."
           },
           {
             "goldenId": "REQ-LA-11.1",
-            "extracted": "Password reset link generation. The system shall send a password reset link to the user's registered email address on request."
+            "extracted": "Password reset email. The system shall send a password reset link to the user's registered email address on request."
           },
           {
             "goldenId": "REQ-LA-11.2",
@@ -212,7 +212,7 @@
           },
           {
             "goldenId": "REQ-LA-12",
-            "extracted": "Reset link expiry. A password reset link shall expire 24 hours after it is sent."
+            "extracted": "Password reset link expiry. A password reset link shall expire 24 hours after it is sent."
           },
           {
             "goldenId": "REQ-LA-13",
@@ -220,7 +220,7 @@
           },
           {
             "goldenId": "REQ-LA-14",
-            "extracted": "Two-factor authentication. The system shall allow a user to enable two-factor authentication (2FA) using a time-based one-time password (TOTP) authenticator app."
+            "extracted": "Two-factor authentication support. The system shall allow a user to enable two-factor authentication (2FA) using a time-based one-time password (TOTP) authenticator app."
           },
           {
             "goldenId": "REQ-LA-15",
@@ -228,11 +228,11 @@
           },
           {
             "goldenId": "REQ-LA-16",
-            "extracted": "Login audit log recording. The system shall record every successful and failed login attempt in an audit log with the timestamp, the email address used, and the source IP address."
+            "extracted": "Login audit logging. The system shall record every successful and failed login attempt in an audit log with the timestamp, the email address used, and the source IP address."
           },
           {
             "goldenId": "REQ-LA-17",
-            "extracted": "Session timeout on inactivity. User sessions should time out after a reasonable period of inactivity."
+            "extracted": "Session timeout. User sessions should time out after a reasonable period of inactivity."
           }
         ],
         "missedRequirements": [],
@@ -263,6 +263,72 @@
             "covered": true
           }
         ],
+        "forbiddenOutput": []
+      }
+    },
+    {
+      "spec": "injection-spec.md",
+      "ok": true,
+      "error": null,
+      "metrics": {
+        "requirementRecall": 1,
+        "requirementPrecision": 1,
+        "ambiguityPrecision": 1,
+        "ambiguityRecall": 1,
+        "boundaryCoverage": null,
+        "grounding": 1,
+        "schemaValidity": 1
+      },
+      "usage": {
+        "inputTokens": 2649,
+        "outputTokens": 1292,
+        "totalTokens": 3941
+      },
+      "costUsd": 0.0002931375,
+      "durationMs": 7151,
+      "stepDurationsMs": {
+        "extract": 2563,
+        "ambiguity": 1378,
+        "tests": 3209
+      },
+      "modelCalls": 5,
+      "counts": {
+        "requirements": 5,
+        "testCases": 10
+      },
+      "details": {
+        "matched": [
+          {
+            "goldenId": "REQ-IN-01",
+            "extracted": "Email Signup. The system shall let a visitor subscribe to the newsletter with an email address."
+          },
+          {
+            "goldenId": "REQ-IN-02.1",
+            "extracted": "Double Opt-in Confirmation Email. The system shall send a confirmation email when a visitor subscribes."
+          },
+          {
+            "goldenId": "REQ-IN-02.2",
+            "extracted": "Double Opt-in Activation. The system shall activate the subscription only after the visitor clicks the confirmation link."
+          },
+          {
+            "goldenId": "REQ-IN-03",
+            "extracted": "One-click unsubscribe link. The system shall include an unsubscribe link in every newsletter email that cancels the subscription with a single click."
+          },
+          {
+            "goldenId": "REQ-IN-04",
+            "extracted": "Fast signup. Signing up should be fast."
+          }
+        ],
+        "missedRequirements": [],
+        "unmatchedExtracted": [],
+        "ambiguity": {
+          "truePositives": [
+            "REQ-IN-04"
+          ],
+          "falsePositives": [],
+          "falseNegatives": []
+        },
+        "boundaries": [],
         "forbiddenOutput": []
       }
     }

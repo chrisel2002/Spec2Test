@@ -1,5 +1,12 @@
 import { z } from "zod";
 
+// Length caps on everything the model writes. Besides keeping output
+// sensible, they limit what a prompt injection could achieve: a model
+// talked into dumping a long payload fails the schema instead of storing
+// it. Generous enough that real requirements and steps never hit them.
+const TITLE_MAX = 200;
+const TEXT_MAX = 1000;
+
 // ---------------------------------------------------------------------------
 // Test case type
 // ---------------------------------------------------------------------------
@@ -18,15 +25,17 @@ export type TestCaseType = z.infer<typeof TestCaseTypeSchema>;
 // violation, not just a prompt suggestion: the model structurally cannot
 // emit an ungrounded requirement.
 export const ExtractedRequirementSchema = z.object({
-  title: z.string().describe("A short, specific title for this requirement"),
+  title: z.string().max(TITLE_MAX).describe("A short, specific title for this requirement"),
   text: z
     .string()
+    .max(TEXT_MAX)
     .describe(
       "The full requirement, rewritten as a single atomic, testable statement",
     ),
   sourceChunkRefs: z
-    .array(z.string())
+    .array(z.string().max(50))
     .min(1)
+    .max(10)
     .describe("Which given chunk label(s) (e.g. 'chunk_2') this came from"),
 });
 export type ExtractedRequirement = z.infer<typeof ExtractedRequirementSchema>;
@@ -58,10 +67,12 @@ export const AmbiguityResultSchema = z
     isAmbiguous: z.boolean(),
     reason: z
       .string()
+      .max(TEXT_MAX)
       .nullable()
       .describe("Why it's ambiguous, e.g. vague wording or a missing threshold"),
     suggestedRewrite: z
       .string()
+      .max(TEXT_MAX)
       .nullable()
       .describe("A measurable rewrite of the requirement, or null if not ambiguous"),
   })
@@ -86,11 +97,11 @@ export const AmbiguityBatchResultSchema = z.object({
 // Also the schema a reviewer's edit is validated with (see
 // lib/review/transitions.ts), hence the user-facing messages.
 export const GeneratedTestCaseSchema = z.object({
-  title: z.string().min(1, "Give the test a title").max(200),
+  title: z.string().min(1, "Give the test a title").max(TITLE_MAX),
   type: TestCaseTypeSchema,
-  given: z.string().min(1, "Describe the precondition"),
-  when: z.string().min(1, "Describe the action"),
-  then: z.string().min(1, "Describe the expected outcome"),
+  given: z.string().min(1, "Describe the precondition").max(TEXT_MAX),
+  when: z.string().min(1, "Describe the action").max(TEXT_MAX),
+  then: z.string().min(1, "Describe the expected outcome").max(TEXT_MAX),
 });
 export type GeneratedTestCase = z.infer<typeof GeneratedTestCaseSchema>;
 

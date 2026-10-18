@@ -9,7 +9,7 @@ import { matchesTerms, matchRequirements, mentionsTerm } from "../../evals/lib/m
 // Checks the golden files themselves, so a typo in one can't quietly turn
 // into a misleading eval score.
 
-const SPECS = ["login-account-spec", "checkout-spec"] as const;
+const SPECS = ["login-account-spec", "checkout-spec", "injection-spec"] as const;
 
 function loadGolden(name: string) {
   return GoldenSpecSchema.parse(
@@ -18,8 +18,8 @@ function loadGolden(name: string) {
 }
 
 // The spec's own text, split into its REQ-xx-NN sections.
-function specSections(file: string): Map<string, string> {
-  const text = readFileSync(join(process.cwd(), "sample-specs", file), "utf8");
+function specSections(dir: string, file: string): Map<string, string> {
+  const text = readFileSync(join(process.cwd(), dir, file), "utf8");
   const sections = new Map<string, string>();
   for (const part of text.split(/^### /m).slice(1)) {
     const id = /^(REQ-[A-Z]+-\d+):/.exec(part)?.[1];
@@ -68,7 +68,7 @@ describe("matchRequirements", () => {
 
 describe.each(SPECS)("golden file %s", (name) => {
   const golden = loadGolden(name);
-  const sections = specSections(golden.spec);
+  const sections = specSections(golden.specDir, golden.spec);
 
   it("covers every requirement section in the spec, and nothing else", () => {
     expect([...new Set(golden.requirements.map((r) => r.sourceId))]).toEqual([...sections.keys()]);

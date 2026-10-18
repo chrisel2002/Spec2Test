@@ -27,10 +27,8 @@ describe("buildExcerptContext", () => {
       makeChunk({ content: "Second." }),
     ]);
 
-    expect(context).toContain("[1]");
-    expect(context).toContain("First.");
-    expect(context).toContain("[2]");
-    expect(context).toContain("Second.");
+    expect(context).toContain('<excerpt number="1">\nFirst.\n</excerpt>');
+    expect(context).toContain('<excerpt number="2">\nSecond.\n</excerpt>');
   });
 
   it("includes heading and page when present", () => {
@@ -38,13 +36,12 @@ describe("buildExcerptContext", () => {
       makeChunk({ heading: "REQ-1.2: Account lockout", page: 3 }),
     ]);
 
-    expect(context).toContain("REQ-1.2: Account lockout");
-    expect(context).toContain("page 3");
+    expect(context).toContain('location="REQ-1.2: Account lockout, page 3"');
   });
 
   it("omits the location line when heading and page are both absent", () => {
     const context = buildExcerptContext([makeChunk()]);
 
-    expect(context).toBe("[1]\nThe system shall do something.");
+    expect(context).toBe('<excerpt number="1">\nThe system shall do something.\n</excerpt>');
   });
 });

@@ -138,7 +138,7 @@ describe("generateTestsForRequirements", () => {
 
   it("batches requirements in groups of 3", async () => {
     mockGenerateStructured.mockImplementation(async (opts) => {
-      const batchSize = (opts.prompt.match(/^\d+\./gm) ?? []).length;
+      const batchSize = (opts.prompt.match(/<requirement /g) ?? []).length;
       return {
         object: {
           results: Array.from({ length: batchSize }, () => ({

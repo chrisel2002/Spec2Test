@@ -40,23 +40,22 @@ function actionOf(sentence: string): string {
   return sentence.replace(/^The (system|user) (shall|must|should) (be )?/i, "");
 }
 
-// "1. text\n\n2. text" -> ["text", "text"], after the instruction line.
+// <requirement index="1">\ntext\n</requirement> ... -> ["text", ...]
 export function parseNumberedList(prompt: string): string[] {
-  const body = prompt.slice(prompt.indexOf("\n\n") + 2);
-  return body
-    .split(/\n\n(?=\d+\. )/)
-    .map((item) => item.replace(/^\d+\. /, "").trim())
+  return [...prompt.matchAll(/<requirement index="\d+">\n([\s\S]*?)\n<\/requirement>/g)]
+    .map((match) => match[1].trim())
     .filter(Boolean);
 }
 
-// "[chunk_1]\ncontent\n\n[chunk_2]\ncontent" -> labelled chunks.
+// <document_excerpt label="chunk_1">\ncontent\n</document_excerpt> ... -> labelled chunks.
 export function parseLabeledChunks(
   prompt: string,
 ): { label: string; content: string }[] {
-  const parts = prompt.split(/^\[(chunk_\d+)\]\n/m);
   const chunks: { label: string; content: string }[] = [];
-  for (let i = 1; i < parts.length; i += 2) {
-    chunks.push({ label: parts[i], content: parts[i + 1].trim() });
+  for (const match of prompt.matchAll(
+    /<document_excerpt label="(chunk_\d+)">\n([\s\S]*?)\n<\/document_excerpt>/g,
+  )) {
+    chunks.push({ label: match[1], content: match[2].trim() });
   }
   return chunks;
 }
