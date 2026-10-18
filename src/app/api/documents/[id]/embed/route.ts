@@ -2,14 +2,17 @@ import { NextResponse } from "next/server";
 
 import { resumeEmbedding } from "@/lib/services/documents";
 import { errorResponse } from "@/lib/services/http";
+import { rateLimit } from "@/lib/services/rate-limits";
 
 export const dynamic = "force-dynamic";
 
 // Resumes a document whose embedding was paused or failed.
 export async function POST(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const limited = rateLimit(request, "upload");
+  if (limited) return limited;
   try {
     const result = await resumeEmbedding((await params).id);
     return NextResponse.json(result, {

@@ -37,6 +37,7 @@ export default defineConfig({
       MODEL_NAME: "mock",
       MOCK_MODEL_DELAY_MS: "50",
       NEXT_DIST_DIR: ".next-e2e",
+      RATE_LIMITS: "off",
     },
   },
 });

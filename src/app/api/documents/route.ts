@@ -2,10 +2,13 @@ import { NextResponse } from "next/server";
 
 import { ingestSpec, listDocuments } from "@/lib/services/documents";
 import { errorResponse } from "@/lib/services/http";
+import { rateLimit } from "@/lib/services/rate-limits";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
+  const limited = rateLimit(request, "upload");
+  if (limited) return limited;
   const file = (await request.formData()).get("file");
   if (!(file instanceof File)) {
     return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
