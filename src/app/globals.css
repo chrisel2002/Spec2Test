@@ -117,6 +117,27 @@
   --sidebar-ring: oklch(0.556 0 0);
 }
 
+/* Insights charts. Categorical slots in fixed order (one per agent step),
+   validated with the dataviz palette checker for colour-vision
+   deficiencies in both modes; light-mode aqua and yellow fall below 3:1
+   contrast, which is why every chart also has a table view. */
+:root {
+  --chart-series-1: #2a78d6;
+  --chart-series-2: #eb6834;
+  --chart-series-3: #1baf7a;
+  --chart-series-4: #eda100;
+  --chart-grid: #e1e0d9;
+  --chart-axis: #c3c2b7;
+}
+.dark {
+  --chart-series-1: #3987e5;
+  --chart-series-2: #d95926;
+  --chart-series-3: #199e70;
+  --chart-series-4: #c98500;
+  --chart-grid: #2c2c2a;
+  --chart-axis: #383835;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

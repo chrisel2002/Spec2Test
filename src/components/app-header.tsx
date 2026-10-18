@@ -1,6 +1,7 @@
 "use client";
 
-import { FileUp, FlaskConical } from "lucide-react";
+import { BarChart3, FileUp, FlaskConical } from "lucide-react";
+import Link from "next/link";
 import { useRef } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -25,6 +26,13 @@ export function AppHeader({
         <FlaskConical className="size-5 text-emerald-600" aria-hidden />
         Spec2Test
       </span>
+      <Link
+        href="/insights"
+        className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+      >
+        <BarChart3 className="size-4" aria-hidden />
+        Insights
+      </Link>
       <div className="ml-auto flex items-center gap-2 text-sm">
         <label htmlFor="reviewer-name" className="text-muted-foreground">
           Reviewing as
