@@ -38,9 +38,12 @@ export async function extractRequirementsFromChunks(
   options: {
     onBatch?: (batch: Requirement[], progress: BatchProgress) => Promise<void>;
   } = {},
-): Promise<{ requirements: Requirement[]; usage: Usage }> {
+): Promise<{ requirements: Requirement[]; usage: Usage; ungroundedCount: number }> {
   let usage = emptyUsage();
   const requirements: Requirement[] = [];
+  // Requirements the model returned with only made-up chunk labels. Dropped,
+  // but counted, so the eval can report how often the model fails to cite.
+  let ungroundedCount = 0;
   let processedChunks = 0;
 
   for (const batch of chunkArray(chunks, CHUNK_BATCH_SIZE)) {
@@ -69,7 +72,10 @@ export async function extractRequirementsFromChunks(
 
       // The model cited a label we never gave it — drop rather than store
       // a requirement we can't actually trace back to source text.
-      if (sourceChunkIds.length === 0) continue;
+      if (sourceChunkIds.length === 0) {
+        ungroundedCount += 1;
+        continue;
+      }
 
       // Numbered across batches, not per batch, so codes stay gap-free.
       batchRequirements.push(
@@ -89,5 +95,5 @@ export async function extractRequirementsFromChunks(
     });
   }
 
-  return { requirements, usage };
+  return { requirements, usage, ungroundedCount };
 }

@@ -67,9 +67,15 @@ export const GoldenBoundarySchema = z.object({
 export const GoldenSpecSchema = z
   .object({
     spec: z.string().regex(/^[\w-]+\.md$/),
+    // Where the spec lives, relative to the repo root.
+    specDir: z.string().default("sample-specs"),
     description: z.string(),
     requirements: z.array(GoldenRequirementSchema).min(1),
     boundaries: z.array(GoldenBoundarySchema),
+    // Regexes that must not match anything the agent produced (requirement
+    // or test text). Used by adversarial specs, e.g. to check an injected
+    // instruction wasn't obeyed.
+    forbiddenOutput: z.array(z.string().refine(isValidRegex, "Invalid regex")).default([]),
   })
   .superRefine((golden, ctx) => {
     const ids = golden.requirements.map((r) => r.id);

@@ -58,12 +58,14 @@ describe("extractRequirementsFromChunks", () => {
       usage: usage(),
     });
 
-    const { requirements } = await extractRequirementsFromChunks([
+    const { requirements, ungroundedCount } = await extractRequirementsFromChunks([
       { id: "chunk-id-1", content: "content 1" },
     ]);
 
     expect(requirements).toHaveLength(1);
     expect(requirements[0].title).toBe("A");
+    // Counted, so the eval's grounding metric sees it.
+    expect(ungroundedCount).toBe(1);
   });
 
   it("batches chunks in groups of 5 — one generateStructured call per batch", async () => {
