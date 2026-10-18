@@ -2,11 +2,14 @@ import { NextResponse } from "next/server";
 
 import { ingestSpec, listDocuments } from "@/lib/services/documents";
 import { errorResponse } from "@/lib/services/http";
+import { requireAccess } from "@/lib/services/access";
 import { rateLimit } from "@/lib/services/rate-limits";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
+  const denied = requireAccess(request);
+  if (denied) return denied;
   const limited = rateLimit(request, "upload");
   if (limited) return limited;
   const file = (await request.formData()).get("file");

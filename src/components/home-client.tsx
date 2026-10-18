@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useRef, useState } from "react";
 
+import { useAccess } from "@/components/access-provider";
 import { AppHeader } from "@/components/app-header";
 import { ChatWithSpec } from "@/components/chat-with-spec";
 import type { DocumentSummary } from "@/components/document-list";
@@ -94,6 +95,7 @@ export function HomeClient({
   const [runs, setRuns] = useState(initialRuns);
   const run = useRun(initialRunDetail);
   const [reviewer, setReviewer] = useReviewerName();
+  const { guard } = useAccess();
   const [starting, setStarting] = useState(false);
   const [continuing, setContinuing] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
@@ -176,6 +178,7 @@ export function HomeClient({
   }
 
   async function handleResume(documentId: string) {
+    if (!guard()) return;
     setResumingId(documentId);
     try {
       await fetch(`/api/documents/${documentId}/embed`, { method: "POST" });
@@ -221,7 +224,7 @@ export function HomeClient({
   // Starting a run only creates it; loading its (empty) detail with status
   // "running" is what makes useRun open the event stream.
   async function handleStartRun() {
-    if (!selectedDocumentId) return;
+    if (!selectedDocumentId || !guard()) return;
     // Supersedes any run that's still loading for this document.
     ++viewRequest.current;
     setStarting(true);
@@ -250,7 +253,7 @@ export function HomeClient({
   // what makes useRun reopen the event stream.
   async function continueRun(path: "resume" | "retry") {
     const current = run.detail?.run;
-    if (!current) return;
+    if (!current || !guard()) return;
     setContinuing(true);
     setStartError(null);
 

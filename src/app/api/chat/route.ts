@@ -15,6 +15,7 @@ import {
 } from "@/lib/ai/prompts/chat-with-spec";
 import { retrieveRelevantChunks } from "@/lib/ai/retrieval";
 import type { SpecUIMessage } from "@/lib/ai/chat-types";
+import { requireAccess } from "@/lib/services/access";
 import { rateLimit } from "@/lib/services/rate-limits";
 
 export const dynamic = "force-dynamic";
@@ -30,6 +31,8 @@ function latestUserText(messages: SpecUIMessage[]): string {
 }
 
 export async function POST(request: Request) {
+  const denied = requireAccess(request);
+  if (denied) return denied;
   const limited = rateLimit(request, "chat");
   if (limited) return limited;
   const { messages }: { messages: SpecUIMessage[] } = await request.json();

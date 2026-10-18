@@ -3,6 +3,7 @@
 import { Loader2, Square, Volume2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
+import { useAccess } from "@/components/access-provider";
 import { Button } from "@/components/ui/button";
 
 type Status = "idle" | "loading" | "playing";
@@ -20,6 +21,7 @@ export function ListenButton({
   const [status, setStatus] = useState<Status>("idle");
   const [error, setError] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const { guard } = useAccess();
 
   function releaseAudio() {
     const audio = audioRef.current;
@@ -39,6 +41,7 @@ export function ListenButton({
   useEffect(() => releaseAudio, []);
 
   async function play() {
+    if (!guard()) return;
     setStatus("loading");
     setError(null);
 

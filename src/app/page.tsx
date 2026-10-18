@@ -1,4 +1,6 @@
+import { AccessProvider } from "@/components/access-provider";
 import { HomeClient } from "@/components/home-client";
+import { accessState } from "@/lib/services/access";
 import { listDocuments } from "@/lib/services/documents";
 import { ServiceError } from "@/lib/services/errors";
 import { getLatestRun, getRun, listRuns } from "@/lib/services/runs";
@@ -32,16 +34,19 @@ export default async function Home({ searchParams }: PageProps<"/">) {
     runDetail = await getLatestRun(selectedDocumentId);
   }
   const runs = selectedDocumentId ? await listRuns(selectedDocumentId) : [];
+  const access = await accessState();
 
   return (
-    <HomeClient
-      initialDocuments={documents}
-      initialSelectedDocumentId={selectedDocumentId}
-      initialRuns={runs}
-      initialRunDetail={runDetail}
-      // Decided on the server, where the env var lives; the client only
-      // learns a boolean, never the key.
-      voiceEnabled={isVoiceEnabled()}
-    />
+    <AccessProvider initialLocked={access.locked} message={access.message}>
+      <HomeClient
+        initialDocuments={documents}
+        initialSelectedDocumentId={selectedDocumentId}
+        initialRuns={runs}
+        initialRunDetail={runDetail}
+        // Decided on the server, where the env var lives; the client only
+        // learns a boolean, never the key.
+        voiceEnabled={isVoiceEnabled()}
+      />
+    </AccessProvider>
   );
 }

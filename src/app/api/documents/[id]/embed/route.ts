@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { resumeEmbedding } from "@/lib/services/documents";
 import { errorResponse } from "@/lib/services/http";
+import { requireAccess } from "@/lib/services/access";
 import { rateLimit } from "@/lib/services/rate-limits";
 
 export const dynamic = "force-dynamic";
@@ -11,6 +12,8 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const denied = requireAccess(request);
+  if (denied) return denied;
   const limited = rateLimit(request, "upload");
   if (limited) return limited;
   try {

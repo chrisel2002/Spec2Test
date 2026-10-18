@@ -2,6 +2,7 @@ import { after, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { ActorSchema } from "@/lib/review/transitions";
+import { requireAccess } from "@/lib/services/access";
 import { respond } from "@/lib/services/http";
 import { resumeRun } from "@/lib/services/runs";
 
@@ -15,6 +16,8 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ runId: string }> },
 ) {
+  const denied = requireAccess(request);
+  if (denied) return denied;
   const body = ResumeSchema.safeParse(await request.json().catch(() => null));
   if (!body.success) {
     return NextResponse.json(

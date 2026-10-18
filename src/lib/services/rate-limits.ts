@@ -19,6 +19,8 @@ const POLICIES = {
   chat: { client: [20, 10 * MINUTE], global: [200, HOUR], noun: "chat questions" },
   // ElevenLabs bills per character.
   voice: { client: [20, 10 * MINUTE], global: [100, HOUR], noun: "voice requests" },
+  // Access-code attempts: slow enough that guessing a code is hopeless.
+  access: { client: [5, 10 * MINUTE], global: [50, HOUR], noun: "access code attempts" },
 } as const;
 
 export type RateLimitPolicy = keyof typeof POLICIES;

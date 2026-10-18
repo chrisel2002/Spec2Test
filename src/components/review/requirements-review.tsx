@@ -1,5 +1,6 @@
 "use client";
 
+import { useAccess } from "@/components/access-provider";
 import { RequirementsPanel } from "@/components/requirements-panel";
 import { AmbiguityResolver } from "@/components/review/ambiguity-resolver";
 import { TestCaseReview } from "@/components/review/test-case-review";
@@ -37,6 +38,8 @@ export function RequirementsReview({
   load: (detail: RunDetail) => void;
 }) {
   const reviewable = isReviewOpen(detail.run.status);
+  const { guard } = useAccess();
+  const locked = "Reviewing needs an access code.";
 
   const eventsByTestCase = new Map<string, ReviewEventView[]>();
   for (const event of detail.reviewEvents) {
@@ -47,6 +50,7 @@ export function RequirementsReview({
   }
 
   async function review(testCaseId: string, change: ReviewChange) {
+    if (!guard()) return locked;
     const response = await fetch(`/api/test-cases/${testCaseId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -61,6 +65,7 @@ export function RequirementsReview({
   }
 
   async function resolve(requirementId: string, text: string) {
+    if (!guard()) return locked;
     const response = await fetch(`/api/requirements/${requirementId}/resolve`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },

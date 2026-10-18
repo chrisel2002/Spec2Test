@@ -3,6 +3,7 @@ import { after, NextResponse } from "next/server";
 import { getSpeech } from "@/lib/voice/cache";
 import { isVoiceEnabled } from "@/lib/voice/config";
 import { ttsRequestSchema } from "@/lib/voice/schema";
+import { requireAccess } from "@/lib/services/access";
 import { rateLimit } from "@/lib/services/rate-limits";
 
 export const dynamic = "force-dynamic";
@@ -10,6 +11,8 @@ export const dynamic = "force-dynamic";
 // Text in, MP3 out. The browser only ever talks to this route; the
 // ElevenLabs key stays in server memory and is never sent to the client.
 export async function POST(request: Request) {
+  const denied = requireAccess(request);
+  if (denied) return denied;
   const limited = rateLimit(request, "voice");
   if (limited) return limited;
   if (!isVoiceEnabled()) {

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { ReviewRequestSchema } from "@/lib/review/transitions";
+import { requireAccess } from "@/lib/services/access";
 import { respond } from "@/lib/services/http";
 import { reviewTestCase } from "@/lib/services/review";
 
@@ -11,6 +12,8 @@ export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const denied = requireAccess(request);
+  if (denied) return denied;
   const body = ReviewRequestSchema.safeParse(await request.json().catch(() => null));
   if (!body.success) {
     return NextResponse.json(

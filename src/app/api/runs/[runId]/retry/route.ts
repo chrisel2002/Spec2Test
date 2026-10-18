@@ -2,6 +2,7 @@ import { after } from "next/server";
 
 import { respond } from "@/lib/services/http";
 import { retryRun } from "@/lib/services/runs";
+import { requireAccess } from "@/lib/services/access";
 import { rateLimit } from "@/lib/services/rate-limits";
 
 export const dynamic = "force-dynamic";
@@ -11,6 +12,8 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ runId: string }> },
 ) {
+  const denied = requireAccess(request);
+  if (denied) return denied;
   const limited = rateLimit(request, "model");
   if (limited) return limited;
   const { runId } = await params;

@@ -4,6 +4,7 @@ import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { useState } from "react";
 
+import { useAccess } from "@/components/access-provider";
 import { ListenButton } from "@/components/listen-button";
 import { Button } from "@/components/ui/button";
 import type { RetrievedChunk } from "@/lib/ai/retrieval";
@@ -55,6 +56,7 @@ export function ChatWithSpec({ voiceEnabled }: { voiceEnabled: boolean }) {
   });
   const [input, setInput] = useState("");
   const [openCitation, setOpenCitation] = useState<string | null>(null);
+  const { guard } = useAccess();
 
   // Only finished assistant answers: reading a half-streamed answer would
   // cut off mid-sentence and cache a truncated clip. Answers over the TTS
@@ -68,7 +70,7 @@ export function ChatWithSpec({ voiceEnabled }: { voiceEnabled: boolean }) {
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!input.trim()) return;
+    if (!input.trim() || !guard()) return;
     sendMessage({ text: input });
     setInput("");
   }

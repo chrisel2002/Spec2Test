@@ -4,6 +4,7 @@ import { BarChart3, FileUp, FlaskConical } from "lucide-react";
 import Link from "next/link";
 import { useRef } from "react";
 
+import { AccessBadge, useAccess } from "@/components/access-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -19,6 +20,7 @@ export function AppHeader({
   onReviewerChange: (name: string) => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const { guard } = useAccess();
 
   return (
     <header className="flex h-14 shrink-0 items-center justify-between gap-4 border-b px-4">
@@ -34,6 +36,7 @@ export function AppHeader({
         Insights
       </Link>
       <div className="ml-auto flex items-center gap-2 text-sm">
+        <AccessBadge />
         <label htmlFor="reviewer-name" className="text-muted-foreground">
           Reviewing as
         </label>
@@ -51,6 +54,12 @@ export function AppHeader({
         type="file"
         accept=".md,.pdf"
         className="hidden"
+        // Every way of opening the file picker (this header's button, the
+        // empty state's label) ends in a click on this input, so it's the
+        // one place to stop a locked visitor before the picker opens.
+        onClick={(e) => {
+          if (!guard()) e.preventDefault();
+        }}
         onChange={(e) => {
           const file = e.target.files?.[0];
           if (file) onUpload(file);
