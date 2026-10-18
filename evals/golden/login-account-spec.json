@@ -1,0 +1,175 @@
+{
+  "spec": "login-account-spec.md",
+  "description": "Login and account management. 17 sections; REQ-LA-11 is a compound to split, giving 18 expected requirements. Ambiguous: REQ-LA-09, LA-15, LA-17.",
+  "requirements": [
+    {
+      "id": "REQ-LA-01",
+      "sourceId": "REQ-LA-01",
+      "statement": "The system shall allow a registered user to log in with their email address and password.",
+      "ambiguous": false,
+      "matchTerms": [["log in", "logs in", "login", "sign in", "signs in"], ["email", "e-mail"], ["password"]]
+    },
+    {
+      "id": "REQ-LA-02",
+      "sourceId": "REQ-LA-02",
+      "statement": "The system shall lock a user's account for 15 minutes after 5 consecutive failed login attempts within a 10-minute window.",
+      "ambiguous": false,
+      "matchTerms": [["lock"], ["15", "fifteen"], ["5", "five"]]
+    },
+    {
+      "id": "REQ-LA-03",
+      "sourceId": "REQ-LA-03",
+      "statement": "When an account is locked, the system shall show a message that the account is temporarily locked and when the user may try again.",
+      "ambiguous": false,
+      "matchTerms": [["lock"], ["message", "notif", "inform"]],
+      "note": "Separate from REQ-LA-02 in the spec, so expected separately; a model that merges the two loses one match."
+    },
+    {
+      "id": "REQ-LA-04",
+      "sourceId": "REQ-LA-04",
+      "statement": "When login fails, the system shall show a generic \"invalid email or password\" message that does not reveal which of the two was wrong.",
+      "ambiguous": false,
+      "matchTerms": [["generic", "without indicating", "without revealing", "not indicat", "not reveal", "which field", "which of"], ["error", "message"]]
+    },
+    {
+      "id": "REQ-LA-05",
+      "sourceId": "REQ-LA-05",
+      "statement": "The system shall offer a \"Remember me\" option that keeps the user logged in on that device for 30 days.",
+      "ambiguous": false,
+      "matchTerms": [["remember"], ["30", "thirty"]]
+    },
+    {
+      "id": "REQ-LA-06",
+      "sourceId": "REQ-LA-06",
+      "statement": "The system shall require a valid email address, a password, and the user's full name to create a new account.",
+      "ambiguous": false,
+      "matchTerms": [["name"], ["email", "e-mail"], ["regist", "creat", "sign up", "sign-up", "signup", "account"]]
+    },
+    {
+      "id": "REQ-LA-07",
+      "sourceId": "REQ-LA-07",
+      "statement": "The system shall keep a new account unverified until the user clicks the confirmation link in the verification email.",
+      "ambiguous": false,
+      "matchTerms": [["verif", "unverif"], ["link", "click"]]
+    },
+    {
+      "id": "REQ-LA-08",
+      "sourceId": "REQ-LA-08",
+      "statement": "The system shall reject a registration with an email address that already belongs to an account, and direct the user to log in or reset their password.",
+      "ambiguous": false,
+      "matchTerms": [["already", "existing", "duplicate", "in use"], ["email", "e-mail"]]
+    },
+    {
+      "id": "REQ-LA-09",
+      "sourceId": "REQ-LA-09",
+      "statement": "Registration should be quick and easy for new users.",
+      "ambiguous": true,
+      "ambiguityReason": "\"Quick and easy\" has no measurable threshold (time, number of steps or fields), so no test can pass or fail it.",
+      "matchTerms": [["regist", "sign up", "sign-up", "signup", "onboard"], ["quick", "easy", "simple", "fast", "effortless", "intuitive", "minute", "second", "step", "field"]]
+    },
+    {
+      "id": "REQ-LA-10",
+      "sourceId": "REQ-LA-10",
+      "statement": "The system shall require new passwords to be at least 12 characters long and to contain at least one digit and one symbol.",
+      "ambiguous": false,
+      "matchTerms": [["password"], ["12", "twelve"]],
+      "note": "One validation rule with three conditions: should NOT be split (the extraction prompt says so explicitly)."
+    },
+    {
+      "id": "REQ-LA-11.1",
+      "sourceId": "REQ-LA-11",
+      "statement": "On request, the system shall send a password reset link to the user's registered email address.",
+      "ambiguous": false,
+      "matchTerms": [["reset"], ["link"], ["email", "e-mail"]],
+      "note": "First half of a compound: REQ-LA-11 joins two independent capabilities with \"and\" and should be split."
+    },
+    {
+      "id": "REQ-LA-11.2",
+      "sourceId": "REQ-LA-11",
+      "statement": "When a user changes their password, the system shall end all of that user's other active sessions.",
+      "ambiguous": false,
+      "matchTerms": [["session"], ["password"]],
+      "note": "Second half of the REQ-LA-11 compound."
+    },
+    {
+      "id": "REQ-LA-12",
+      "sourceId": "REQ-LA-12",
+      "statement": "A password reset link shall expire 24 hours after it is sent.",
+      "ambiguous": false,
+      "matchTerms": [["reset", "link"], ["expir", "valid"], ["24", "twenty-four"]]
+    },
+    {
+      "id": "REQ-LA-13",
+      "sourceId": "REQ-LA-13",
+      "statement": "The system shall prevent a user from reusing any of their 3 most recent passwords.",
+      "ambiguous": false,
+      "matchTerms": [["reus", "previous", "recent", "last", "history"], ["password"], ["3", "three"]]
+    },
+    {
+      "id": "REQ-LA-14",
+      "sourceId": "REQ-LA-14",
+      "statement": "The system shall allow a user to enable two-factor authentication using a TOTP authenticator app.",
+      "ambiguous": false,
+      "matchTerms": [["two-factor", "2fa", "multi-factor", "mfa", "totp", "one-time"]]
+    },
+    {
+      "id": "REQ-LA-15",
+      "sourceId": "REQ-LA-15",
+      "statement": "The system should be secure against common attacks.",
+      "ambiguous": true,
+      "ambiguityReason": "\"Secure\" and \"common attacks\" are undefined: no list of attacks or security standard to test against.",
+      "matchTerms": [["attack", "secure", "security", "owasp", "vulnerab"]]
+    },
+    {
+      "id": "REQ-LA-16",
+      "sourceId": "REQ-LA-16",
+      "statement": "The system shall record every successful and failed login attempt in an audit log with the timestamp, email address used, and source IP address.",
+      "ambiguous": false,
+      "matchTerms": [["audit", "record"], ["ip"]]
+    },
+    {
+      "id": "REQ-LA-17",
+      "sourceId": "REQ-LA-17",
+      "statement": "User sessions should time out after a reasonable period of inactivity.",
+      "ambiguous": true,
+      "ambiguityReason": "\"A reasonable period\" has no duration, so the timeout can't be verified.",
+      "matchTerms": [["session"], ["time out", "timeout", "times out", "timed out", "expire", "inactiv", "idle"]]
+    }
+  ],
+  "boundaries": [
+    {
+      "id": "LA-B1",
+      "requirementId": "REQ-LA-02",
+      "value": "5 failed logins",
+      "why": "The lockout threshold: 4 failures must not lock the account, the 5th must.",
+      "patterns": [
+        "\\b(5|five|5th|fifth)\\b[^.]{0,60}\\b(fail|attempt|incorrect|wrong|invalid)",
+        "\\b(fail|attempt|incorrect|wrong|invalid)[^.]{0,60}\\b(5|five|5th|fifth)\\b"
+      ],
+      "examples": [
+        "Given a user has entered a wrong password 5 times in a row",
+        "When the fifth consecutive login attempt fails",
+        "the account is locked after 5 failed attempts"
+      ],
+      "counterExamples": ["the account stays locked for 15 minutes", "after 3 failed attempts the user sees a warning"]
+    },
+    {
+      "id": "LA-B2",
+      "requirementId": "REQ-LA-10",
+      "value": "12-character passwords",
+      "why": "The minimum length: 11 characters must be rejected, 12 accepted.",
+      "patterns": ["\\b(12|twelve)[- ]?(char|character)s?\\b"],
+      "examples": ["a password of 12 characters", "When the user enters a 12-character password", "twelve characters long"],
+      "counterExamples": ["a password of 11 characters", "a 120-character password"]
+    },
+    {
+      "id": "LA-B3",
+      "requirementId": "REQ-LA-12",
+      "value": "24-hour link expiry",
+      "why": "The link must work just before 24 hours and fail at or after 24 hours.",
+      "patterns": ["\\b(24|twenty-four)[- ]?(hours?|hrs?|h)\\b"],
+      "examples": ["When the user opens the link 24 hours after it was sent", "a 24-hour old reset link", "after twenty-four hours"],
+      "counterExamples": ["after 23 hours", "within 1 hour"]
+    }
+  ]
+}
