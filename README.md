@@ -533,6 +533,39 @@ where it is. The limitation is that the bus is in-process: with several
 Cloud Run instances, the next step would be Postgres `LISTEN/NOTIFY` or
 Redis pub/sub.
 
+### What happens to a run when the free host sleeps or restarts
+
+Agent runs execute in the background of the web server process, and live
+progress goes through an in-memory event bus. Render's free web service
+runs one instance (which suits the bus), but it sleeps after 15 minutes
+without incoming requests, may restart at any time, and is replaced on
+every deploy. Each case, tested by stopping and killing the production
+container mid-run:
+
+- **Sleep.** Starting a run is itself a request, so the 15-minute idle
+  timer starts then, and a run takes one to three minutes. A run waiting
+  for review needs no process at all: its state is a LangGraph checkpoint
+  in Postgres, so the instance can sleep for days and Build matrix still
+  resumes it.
+- **Graceful restart or deploy.** Render sends SIGTERM and allows a
+  shutdown grace period (set to 120 s in `render.yaml`; on a deploy the old
+  instance also keeps running for 60 s after the new one is up). Next.js
+  stops taking requests but waits for pending `after()` work, which is
+  where runs execute, so a run in progress finishes. Tested: a run 10 s
+  in completed before the container exited.
+- **Hard kill** (the grace period runs out, or a crash). The run's
+  heartbeat stops; 30 s later any request for it marks it failed with
+  "the process running it restarted", and the UI shows **Retry**. Retry
+  continues from the last checkpoint, so finished steps aren't repeated or
+  paid for again. Tested: killed during test generation, the retry ran
+  only test generation, with no duplicate rows.
+
+That last guarantee needed one fix: LangGraph saves checkpoints
+asynchronously by default, while the next step is already running, so a
+kill right after a step finished lost that step and Retry repeated it.
+Runs now use `durability: "sync"`, which saves each checkpoint before the
+next step starts, at the cost of one database write per step.
+
 ### Why deterministic metrics instead of an LLM judge
 
 A common way to evaluate an LLM app is to ask another LLM to grade the

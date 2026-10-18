@@ -123,6 +123,13 @@ export async function executeRun(runId: string, input: RunInput) {
     const stream = await graph.stream(graphInput(runId, input), {
       ...config,
       streamMode: "custom",
+      // Save each step's checkpoint before the next step starts. The
+      // default ("async") saves it while the next step already runs, so a
+      // process killed in that window (a host restart, Render's SIGKILL
+      // after the shutdown grace period) loses the step it just finished,
+      // and Retry repeats it. One extra DB write per step is nothing next
+      // to a model call.
+      durability: "sync",
     });
     for await (const chunk of stream) {
       // Nodes only ever write RunEvents, but the writer is typed unknown;
