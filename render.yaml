@@ -30,7 +30,7 @@ services:
     # killing the old instance. Next.js finishes pending after() work (where
     # agent runs execute) before exiting, so a longer window lets a run in
     # progress complete; one that doesn't is shown as failed with Retry.
-    maxShutdownDelaySeconds: 120
+    
     envVars:
       # Secrets: Render prompts for these.
       - key: DATABASE_URL # Neon's pooled connection string
